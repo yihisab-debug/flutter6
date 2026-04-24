@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/app_constants.dart';
 import '../models/user_model.dart';
@@ -12,14 +13,21 @@ class UserRepository {
   }
 
   Future<UserModel?> getUserByFirebaseUid(String firebaseUid) async {
-    final response = await _dio.get(
-      _endpoint,
-      queryParameters: {'firebaseUid': firebaseUid},
-    );
+    try {
+      final response = await _dio.get(
+        _endpoint,
+        queryParameters: {'firebaseUid': firebaseUid},
+      );
 
-    final list = response.data as List;
-    if (list.isEmpty) return null;
-    return UserModel.fromJson(list.first);
+      final list = response.data as List;
+      if (list.isEmpty) return null;
+      return UserModel.fromJson(list.first);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return null;
+      }
+      rethrow;
+    }
   }
 
   Future<UserModel> getUserById(String id) async {
