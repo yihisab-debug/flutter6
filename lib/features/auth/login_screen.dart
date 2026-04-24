@@ -155,14 +155,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
                 child: const Text('Нет аккаунта? Зарегистрироваться'),
               ),
+
               const Divider(height: 32),
+              
               OutlinedButton.icon(
                 onPressed: _seeding ? null : _seedTestData,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,           // цвет текста и иконки
+                  foregroundColor: Colors.white,        
                   side: const BorderSide(
-                    color: Colors.black,                   // цвет рамки
-                    width: 1.5,                            // толщина рамки
+                    color: Colors.red,              
+                    width: 1.5,                         
                   ),
                 ),
                 icon: _seeding

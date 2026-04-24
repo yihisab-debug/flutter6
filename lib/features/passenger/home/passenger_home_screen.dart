@@ -6,6 +6,7 @@ import '../../../core/auth_provider.dart';
 import '../../../models/ride_model.dart';
 import '../../../repositories/ride_repository.dart';
 import '../searching/searching_screen.dart';
+import '../active_ride/active_ride_screen.dart';
 import '../history/history_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -37,6 +38,43 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         random.nextDouble() *
             (AppConstants.maxDistance - AppConstants.minDistance);
     return AppConstants.basePrice + distance * AppConstants.pricePerKm;
+  }
+
+  Future<void> _openCurrentRide() async {
+    final user = context.read<AuthProvider>().user!;
+
+    try {
+      final active = await _rideRepo.getActiveRideForPassenger(user.id);
+
+      if (!mounted) return;
+
+      if (active == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('У вас нет активных поездок')),
+        );
+        return;
+      }
+
+      if (active.status == RideStatus.searching) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SearchingScreen(rideId: active.id),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ActiveRideScreen(rideId: active.id),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _orderTaxi() async {
@@ -103,6 +141,12 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         title: const Text('Taxi App'),
         actions: [
           IconButton(
+            tooltip: 'Текущая поездка',
+            icon: const Icon(Icons.directions_car),
+            onPressed: _openCurrentRide,
+          ),
+          IconButton(
+            tooltip: 'История',
             icon: const Icon(Icons.history),
             onPressed: () {
               Navigator.of(context).push(
@@ -113,6 +157,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             },
           ),
           IconButton(
+            tooltip: 'Профиль',
             icon: const Icon(Icons.person),
             onPressed: () {
               Navigator.of(context).push(

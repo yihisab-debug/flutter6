@@ -43,6 +43,35 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
     }
   }
 
+  Future<void> _openCurrentRide() async {
+    final user = context.read<AuthProvider>().user!;
+
+    try {
+      final active = await _rideRepo.getActiveRideForDriver(user.id);
+
+      if (!mounted) return;
+
+      if (active == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('У вас нет активных поездок')),
+        );
+        return;
+      }
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DriverActiveRideScreen(rideId: active.id),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
+    }
+  }
+
   void _startPolling() {
     _load();
     _timer = Timer.periodic(
@@ -101,6 +130,12 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
         title: const Text('Доступные заказы'),
         actions: [
           IconButton(
+            tooltip: 'Текущая поездка',
+            icon: const Icon(Icons.directions_car),
+            onPressed: _openCurrentRide,
+          ),
+          IconButton(
+            tooltip: 'История',
             icon: const Icon(Icons.history),
             onPressed: () {
               Navigator.of(context).push(
@@ -111,6 +146,7 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
             },
           ),
           IconButton(
+            tooltip: 'Профиль',
             icon: const Icon(Icons.person),
             onPressed: () {
               Navigator.of(context).push(
