@@ -57,7 +57,6 @@ class _SearchingScreenState extends State<SearchingScreen> {
         if (mounted) Navigator.of(context).pop();
       }
     } catch (e) {
-      // Игнорируем ошибки сети во время polling
     }
   }
 

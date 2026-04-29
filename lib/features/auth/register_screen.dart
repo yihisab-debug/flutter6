@@ -33,9 +33,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
-    final ok = await auth.register(
+    final ok = await auth.completeRegistration(
+      firebaseUid: '',
       email: _emailCtrl.text.trim(),
-      password: _passCtrl.text,
       name: _nameCtrl.text.trim(),
       role: _role,
       carModel: _carModelCtrl.text.trim(),

@@ -50,4 +50,32 @@ class UserRepository {
     );
     return UserModel.fromJson(response.data);
   }
+
+  Future<UserModel> updateRating(
+    String id, {
+    required double rating,
+    required int ratingCount,
+  }) async {
+    final response = await _dio.put(
+      '$_endpoint/$id',
+      data: {
+        'rating': rating,
+        'ratingCount': ratingCount,
+      },
+    );
+    return UserModel.fromJson(response.data);
+  }
+
+  Future<List<UserModel>> getDrivers({double minRating = 0}) async {
+    final response = await _dio.get(
+      _endpoint,
+      queryParameters: {'role': 'driver'},
+    );
+    final list = (response.data as List)
+        .map((e) => UserModel.fromJson(e))
+        .where((u) => u.rating >= minRating)
+        .toList();
+    list.sort((a, b) => b.rating.compareTo(a.rating));
+    return list;
+  }
 }

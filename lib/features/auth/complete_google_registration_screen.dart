@@ -35,7 +35,7 @@ class _CompleteGoogleRegistrationScreenState
   Future<void> _submit() async {
     final auth = context.read<AuthProvider>();
 
-    final ok = await auth.completeGoogleRegistration(
+    final ok = await auth.completeRegistration(
       firebaseUid: widget.firebaseUid,
       email: widget.email,
       name: widget.name,

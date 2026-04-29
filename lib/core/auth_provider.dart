@@ -113,4 +113,23 @@ class AuthProvider extends ChangeNotifier {
     _user = await _userRepo.getUserById(_user!.id);
     notifyListeners();
   }
+
+  Future<bool> topUpBalance(double amount) async {
+    if (_user == null) return false;
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final newBalance = _user!.balance + amount;
+      _user = await _userRepo.updateBalance(_user!.id, newBalance);
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
 }

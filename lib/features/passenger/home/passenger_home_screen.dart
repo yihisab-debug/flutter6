@@ -40,6 +40,26 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     return AppConstants.basePrice + distance * AppConstants.pricePerKm;
   }
 
+  Future<void> _topUp() async {
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.topUpBalance(5000);
+
+    if (!mounted) return;
+
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Баланс пополнен на 5000 ₸'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.error ?? 'Ошибка пополнения')),
+      );
+    }
+  }
+
   Future<void> _openCurrentRide() async {
     final user = context.read<AuthProvider>().user!;
 
@@ -134,7 +154,8 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().user;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
 
     return Scaffold(
       appBar: AppBar(
@@ -176,18 +197,48 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
           children: [
             Card(
               color: Colors.amber[50],
-              child: ListTile(
-                leading: const Icon(
-                  Icons.account_balance_wallet,
-                  color: Colors.amber,
-                ),
-                title: const Text('Ваш баланс'),
-                subtitle: Text(
-                  '${user?.balance.toStringAsFixed(0) ?? 0} ₸',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.amber,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Ваш баланс',
+                            style: TextStyle(color: Colors.black54),
+                          ),
+                          Text(
+                            '${user?.balance.toStringAsFixed(0) ?? 0} ₸',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('5000'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onPressed: auth.loading ? null : _topUp,
+                    ),
+                  ],
                 ),
               ),
             ),

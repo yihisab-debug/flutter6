@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/auth_provider.dart';
 import '../../../models/ride_model.dart';
 import '../../../repositories/ride_repository.dart';
+import '../../reviews/ride_reviews_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -28,6 +29,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _future = user.isDriver
         ? _rideRepo.getDriverHistory(user.id)
         : _rideRepo.getPassengerHistory(user.id);
+  }
+
+  void _openRideReviews(RideModel ride) {
+    if (ride.status != RideStatus.completed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Отзывы доступны только для завершённых поездок'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RideReviewsScreen(ride: ride),
+      ),
+    );
   }
 
   @override
@@ -107,14 +125,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (ctx, i) {
                 final r = rides[i];
+                final completed = r.status == RideStatus.completed;
                 return ListTile(
                   leading: Icon(
-                    r.status == RideStatus.completed
-                        ? Icons.check_circle
-                        : Icons.cancel,
-                    color: r.status == RideStatus.completed
-                        ? Colors.green
-                        : Colors.redAccent,
+                    completed ? Icons.check_circle : Icons.cancel,
+                    color: completed ? Colors.green : Colors.redAccent,
                   ),
                   title: Text('${r.fromAddress} → ${r.toAddress}'),
                   subtitle: Text(
@@ -122,7 +137,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ? DateFormat('dd.MM.yyyy HH:mm').format(r.createdAt!)
                         : '',
                   ),
-                  trailing: Text('${r.price.toStringAsFixed(0)} ₸'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${r.price.toStringAsFixed(0)} ₸'),
+                      if (completed) ...[
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: Colors.grey,
+                        ),
+                      ],
+                    ],
+                  ),
+                  onTap: completed ? () => _openRideReviews(r) : null,
                 );
               },
             ),

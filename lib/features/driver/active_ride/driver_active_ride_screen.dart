@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/auth_provider.dart';
+import '../../../models/review_model.dart';
 import '../../../models/ride_model.dart';
 import '../../../repositories/ride_repository.dart';
+import '../../reviews/ride_reviews_screen.dart';
+import '../../reviews/submit_review_screen.dart';
 
 class DriverActiveRideScreen extends StatefulWidget {
   final String rideId;
@@ -52,19 +55,40 @@ class _DriverActiveRideScreenState extends State<DriverActiveRideScreen> {
     setState(() => _busy = true);
 
     try {
-      await _rideRepo.completeRide(_ride!);
+      final completed = await _rideRepo.completeRide(_ride!);
       await context.read<AuthProvider>().refreshUser();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Поездка завершена. +${_ride!.price.toStringAsFixed(0)} ₸',
-            ),
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Поездка завершена. +${completed.price.toStringAsFixed(0)} ₸',
           ),
-        );
-        Navigator.of(context).pop();
-      }
+        ),
+      );
+
+      final driver = context.read<AuthProvider>().user!;
+
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => SubmitReviewScreen(
+            ride: completed,
+            fromUserId: driver.id,
+            toUserId: completed.passengerId,
+            toUserName: completed.passengerName,
+            role: ReviewRole.driverToPassenger,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RideReviewsScreen(ride: completed),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

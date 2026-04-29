@@ -8,6 +8,7 @@ class UserModel {
   final String carModel;
   final String carNumber;
   final double rating;
+  final int ratingCount;
   final bool isAvailable;
   final DateTime? createdAt;
 
@@ -21,6 +22,7 @@ class UserModel {
     this.carModel = '',
     this.carNumber = '',
     this.rating = 0,
+    this.ratingCount = 0,
     this.isAvailable = true,
     this.createdAt,
   });
@@ -44,6 +46,9 @@ class UserModel {
       carModel: json['carModel'] ?? '',
       carNumber: json['carNumber'] ?? '',
       rating: (json['rating'] ?? 0).toDouble(),
+      ratingCount: (json['ratingCount'] ?? 0) is int
+          ? (json['ratingCount'] ?? 0) as int
+          : int.tryParse(json['ratingCount'].toString()) ?? 0,
       isAvailable: json['isAvailable'] ?? true,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())
@@ -61,6 +66,7 @@ class UserModel {
       'carModel': carModel,
       'carNumber': carNumber,
       'rating': rating,
+      'ratingCount': ratingCount,
       'isAvailable': isAvailable,
     };
   }
@@ -70,6 +76,8 @@ class UserModel {
     String? carModel,
     String? carNumber,
     bool? isAvailable,
+    double? rating,
+    int? ratingCount,
   }) {
     return UserModel(
       id: id,
@@ -80,7 +88,8 @@ class UserModel {
       firebaseUid: firebaseUid,
       carModel: carModel ?? this.carModel,
       carNumber: carNumber ?? this.carNumber,
-      rating: rating,
+      rating: rating ?? this.rating,
+      ratingCount: ratingCount ?? this.ratingCount,
       isAvailable: isAvailable ?? this.isAvailable,
       createdAt: createdAt,
     );

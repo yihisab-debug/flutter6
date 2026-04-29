@@ -4,6 +4,7 @@ class AppConstants {
 
   static const String usersEndpoint = '/project';
   static const String ridesEndpoint = '/image';
+  static const String reviewsEndpoint = '/reviews';
 
   static const double basePrice = 500.0;
   static const double pricePerKm = 150.0;
@@ -14,4 +15,6 @@ class AppConstants {
 
   static const String keyUserId = 'user_id';
   static const String keyFirebaseUid = 'firebase_uid';
+
+  static const Duration reviewEditWindow = Duration(minutes: 10);
 }

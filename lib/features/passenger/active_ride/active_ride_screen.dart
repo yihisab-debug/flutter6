@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import '../../../core/app_constants.dart';
 import '../../../core/auth_provider.dart';
 import '../../../core/notification_service.dart';
+import '../../../models/review_model.dart';
 import '../../../models/ride_model.dart';
 import '../../../repositories/ride_repository.dart';
+import '../../reviews/ride_reviews_screen.dart';
+import '../../reviews/submit_review_screen.dart';
 
 class ActiveRideScreen extends StatefulWidget {
   final String rideId;
@@ -49,18 +52,36 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
       if (ride.status == RideStatus.completed ||
           ride.status == RideStatus.cancelled) {
         _timer?.cancel();
-
         await context.read<AuthProvider>().refreshUser();
 
-        if (mounted) {
-          final message = ride.status == RideStatus.completed
-              ? 'Поездка завершена. Списано ${ride.price.toStringAsFixed(0)} ₸'
-              : 'Поездка отменена';
+        if (!mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
+        if (ride.status == RideStatus.completed) {
+          final user = context.read<AuthProvider>().user!;
+
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => SubmitReviewScreen(
+                ride: ride,
+                fromUserId: user.id,
+                toUserId: ride.driverId,
+                toUserName: ride.driverName,
+                role: ReviewRole.passengerToDriver,
+              ),
+            ),
           );
 
+          if (!mounted) return;
+
+          await Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => RideReviewsScreen(ride: ride),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Поездка отменена')),
+          );
           Navigator.of(context).pop();
         }
       }
