@@ -6,10 +6,8 @@ class AppConstants {
   static const String ridesEndpoint = '/image';
   static const String reviewsEndpoint = '/reviews';
 
-  static const double basePrice = 500.0;
-  static const double pricePerKm = 150.0;
-  static const double minDistance = 2.0;
-  static const double maxDistance = 20.0;
+  static const double basePrice = 50.0;
+  static const double pricePerKm = 10.0;
 
   static const Duration pollingInterval = Duration(seconds: 3);
 

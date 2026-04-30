@@ -1,9 +1,10 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/app_constants.dart';
 import '../../../core/auth_provider.dart';
+import '../../../core/pricing_service.dart';
+import '../../../models/location_model.dart';
 import '../../../models/ride_model.dart';
+import '../../../repositories/location_repository.dart';
 import '../../../repositories/ride_repository.dart';
 import '../searching/searching_screen.dart';
 import '../active_ride/active_ride_screen.dart';
@@ -18,26 +19,26 @@ class PassengerHomeScreen extends StatefulWidget {
 }
 
 class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
-  final _fromCtrl = TextEditingController();
-  final _toCtrl = TextEditingController();
   final _rideRepo = RideRepository();
+  final _locationRepo = LocationRepository();
+
+  late final List<LocationModel> _locations;
+
+  LocationModel? _from;
+  LocationModel? _to;
 
   bool _loading = false;
-  double _estimatedPrice = 0;
 
   @override
-  void dispose() {
-    _fromCtrl.dispose();
-    _toCtrl.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _locations = _locationRepo.getAll();
   }
 
-  double _calculatePrice() {
-    final random = Random();
-    final distance = AppConstants.minDistance +
-        random.nextDouble() *
-            (AppConstants.maxDistance - AppConstants.minDistance);
-    return AppConstants.basePrice + distance * AppConstants.pricePerKm;
+  TripEstimate? get _estimate {
+    if (_from == null || _to == null) return null;
+    if (_from!.id == _to!.id) return null;
+    return PricingService.estimate(_from!, _to!);
   }
 
   Future<void> _topUp() async {
@@ -97,16 +98,31 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     }
   }
 
+  void _swap() {
+    setState(() {
+      final tmp = _from;
+      _from = _to;
+      _to = tmp;
+    });
+  }
+
   Future<void> _orderTaxi() async {
-    if (_fromCtrl.text.isEmpty || _toCtrl.text.isEmpty) {
+    if (_from == null || _to == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните оба адреса')),
+        const SnackBar(content: Text('Выберите точки A и B')),
+      );
+      return;
+    }
+    if (_from!.id == _to!.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Точки отправления и назначения совпадают')),
       );
       return;
     }
 
+    final est = _estimate!;
     final user = context.read<AuthProvider>().user!;
-    final price = _calculatePrice();
+    final price = double.parse(est.price.toStringAsFixed(0));
 
     if (user.balance < price) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,9 +142,9 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         id: '',
         passengerId: user.id,
         passengerName: user.name,
-        fromAddress: _fromCtrl.text,
-        toAddress: _toCtrl.text,
-        price: double.parse(price.toStringAsFixed(0)),
+        fromAddress: _from!.name,
+        toAddress: _to!.name,
+        price: price,
         status: RideStatus.searching,
       );
 
@@ -152,10 +168,40 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     }
   }
 
+  Widget _locationDropdown({
+    required String label,
+    required IconData icon,
+    required Color iconColor,
+    required LocationModel? value,
+    required ValueChanged<LocationModel?> onChanged,
+  }) {
+    return DropdownButtonFormField<LocationModel>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: iconColor),
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+      items: _locations
+          .map(
+            (l) => DropdownMenuItem<LocationModel>(
+              value: l,
+              child: Text(l.name, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(),
+      onChanged: (v) {
+        setState(() => onChanged(v));
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final est = _estimate;
 
     return Scaffold(
       appBar: AppBar(
@@ -190,7 +236,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -243,41 +289,70 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: _fromCtrl,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.my_location, color: Colors.green),
-                labelText: 'Откуда',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (_) {
-                setState(() {
-                  _estimatedPrice = _calculatePrice();
-                });
-              },
+            _locationDropdown(
+              label: 'Откуда (точка A)',
+              icon: Icons.my_location,
+              iconColor: Colors.green,
+              value: _from,
+              onChanged: (v) => _from = v,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _toCtrl,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.location_on, color: Colors.red),
-                labelText: 'Куда',
-                border: OutlineInputBorder(),
+            const SizedBox(height: 8),
+            Center(
+              child: IconButton(
+                tooltip: 'Поменять местами',
+                icon: const Icon(Icons.swap_vert),
+                onPressed: (_from == null && _to == null) ? null : _swap,
               ),
-              onChanged: (_) {
-                setState(() {
-                  _estimatedPrice = _calculatePrice();
-                });
-              },
+            ),
+            const SizedBox(height: 8),
+            _locationDropdown(
+              label: 'Куда (точка B)',
+              icon: Icons.location_on,
+              iconColor: Colors.red,
+              value: _to,
+              onChanged: (v) => _to = v,
             ),
             const SizedBox(height: 20),
-            if (_fromCtrl.text.isNotEmpty && _toCtrl.text.isNotEmpty)
-              Text(
-                'Примерная стоимость: ${_estimatedPrice.toStringAsFixed(0)} ₸',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+            if (est != null)
+              Card(
+                color: Colors.blue[50],
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.route, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Расстояние: ${est.distanceKm.toStringAsFixed(2)} км',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.attach_money,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Стоимость: ${est.price.toStringAsFixed(0)} ₸',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             const SizedBox(height: 20),
@@ -292,7 +367,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
                 backgroundColor: Colors.amber,
                 foregroundColor: Colors.black,
               ),
-              onPressed: _loading ? null : _orderTaxi,
+              onPressed: (_loading || est == null) ? null : _orderTaxi,
             ),
           ],
         ),

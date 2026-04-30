@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/app_constants.dart';
 import '../models/ride_model.dart';
@@ -19,21 +18,21 @@ class ReviewFilter {
 
 class ReviewItem {
   final String rideId;
-  final String fromUserId;
-  final String toUserId;
   final int rating;
   final String comment;
   final DateTime createdAt;
-  final String fromRole;
+  final String fromUserId;
+  final String fromUserName;
+  final String toUserId;
 
-  ReviewItem({
+  const ReviewItem({
     required this.rideId,
-    required this.fromUserId,
-    required this.toUserId,
     required this.rating,
     required this.comment,
     required this.createdAt,
-    required this.fromRole,
+    required this.fromUserId,
+    required this.fromUserName,
+    required this.toUserId,
   });
 
   bool get isPositive => rating >= 4;
@@ -43,21 +42,11 @@ class ReviewItem {
 class ReviewRepository {
   final _dio = ApiClient().dio;
   final _userRepo = UserRepository();
-  final _ridesEndpoint = AppConstants.ridesEndpoint;
+  final _endpoint = AppConstants.ridesEndpoint;
 
-  Never _friendly(DioException e, String action) {
-    final code = e.response?.statusCode;
-    if (code == 400) {
-      throw Exception(
-        'Сервер отклонил запрос ($action). В ресурсе image должны быть '
-        'поля: passengerRating, passengerComment, passengerReviewAt, '
-        'driverRating, driverComment, driverReviewAt.',
-      );
-    }
-    if (code == 404) {
-      throw Exception('Поездка не найдена');
-    }
-    throw Exception('Ошибка сервера ($action): ${e.message}');
+  Future<RideModel> reloadRide(String rideId) async {
+    final response = await _dio.get('$_endpoint/$rideId');
+    return RideModel.fromJson(response.data);
   }
 
   Future<RideModel> savePassengerReview({
@@ -74,25 +63,21 @@ class ReviewRepository {
       );
     }
 
-    final ts = ride.hasPassengerReview
-        ? ride.passengerReviewAt
-        : DateTime.now().millisecondsSinceEpoch;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final reviewAt = ride.hasPassengerReview ? ride.passengerReviewAt : now;
 
-    try {
-      final response = await _dio.put(
-        '$_ridesEndpoint/${ride.id}',
-        data: {
-          'passengerRating': rating,
-          'passengerComment': comment,
-          'passengerReviewAt': ts,
-        },
-      );
-      final updated = RideModel.fromJson(response.data);
-      await _recalculateUserRating(ride.driverId);
-      return updated;
-    } on DioException catch (e) {
-      _friendly(e, 'отправке отзыва');
-    }
+    final response = await _dio.put(
+      '$_endpoint/${ride.id}',
+      data: {
+        'passengerRating': rating,
+        'passengerComment': comment,
+        'passengerReviewAt': reviewAt,
+      },
+    );
+
+    final updated = RideModel.fromJson(response.data);
+    await _recalculateUserRating(ride.driverId);
+    return updated;
   }
 
   Future<RideModel> saveDriverReview({
@@ -109,34 +94,21 @@ class ReviewRepository {
       );
     }
 
-    final ts = ride.hasDriverReview
-        ? ride.driverReviewAt
-        : DateTime.now().millisecondsSinceEpoch;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final reviewAt = ride.hasDriverReview ? ride.driverReviewAt : now;
 
-    try {
-      final response = await _dio.put(
-        '$_ridesEndpoint/${ride.id}',
-        data: {
-          'driverRating': rating,
-          'driverComment': comment,
-          'driverReviewAt': ts,
-        },
-      );
-      final updated = RideModel.fromJson(response.data);
-      await _recalculateUserRating(ride.passengerId);
-      return updated;
-    } on DioException catch (e) {
-      _friendly(e, 'отправке отзыва');
-    }
-  }
+    final response = await _dio.put(
+      '$_endpoint/${ride.id}',
+      data: {
+        'driverRating': rating,
+        'driverComment': comment,
+        'driverReviewAt': reviewAt,
+      },
+    );
 
-  Future<RideModel> reloadRide(String rideId) async {
-    try {
-      final response = await _dio.get('$_ridesEndpoint/$rideId');
-      return RideModel.fromJson(response.data);
-    } on DioException catch (e) {
-      _friendly(e, 'загрузке поездки');
-    }
+    final updated = RideModel.fromJson(response.data);
+    await _recalculateUserRating(ride.passengerId);
+    return updated;
   }
 
   Future<List<ReviewItem>> getReviewsForUser(
@@ -144,88 +116,49 @@ class ReviewRepository {
     String sort = ReviewSortMode.dateDesc,
     String filter = ReviewFilter.all,
   }) async {
-    List asDriver = [];
-    List asPassenger = [];
+    final items = <ReviewItem>[];
 
-    try {
-      final r = await _dio.get(
-        _ridesEndpoint,
-        queryParameters: {'driverId': userId},
-      );
-      asDriver = r.data as List;
-    } on DioException catch (e) {
-      if (e.response?.statusCode != 404) rethrow;
-    }
-
-    try {
-      final r = await _dio.get(
-        _ridesEndpoint,
-        queryParameters: {'passengerId': userId},
-      );
-      asPassenger = r.data as List;
-    } on DioException catch (e) {
-      if (e.response?.statusCode != 404) rethrow;
-    }
-
-    final result = <ReviewItem>[];
-
-    for (final item in asDriver) {
-      final ride = RideModel.fromJson(item);
-      if (ride.hasPassengerReview && ride.driverId == userId) {
-        result.add(ReviewItem(
+    final asPassenger = await _dio.get(
+      _endpoint,
+      queryParameters: {'passengerId': userId},
+    );
+    for (final raw in (asPassenger.data as List)) {
+      final ride = RideModel.fromJson(raw);
+      if (ride.hasDriverReview) {
+        items.add(ReviewItem(
           rideId: ride.id,
-          fromUserId: ride.passengerId,
-          toUserId: ride.driverId,
-          rating: ride.passengerRating,
-          comment: ride.passengerComment,
-          createdAt: ride.passengerReviewDate!,
-          fromRole: 'passenger',
-        ));
-      }
-    }
-
-    for (final item in asPassenger) {
-      final ride = RideModel.fromJson(item);
-      if (ride.hasDriverReview && ride.passengerId == userId) {
-        result.add(ReviewItem(
-          rideId: ride.id,
-          fromUserId: ride.driverId,
-          toUserId: ride.passengerId,
           rating: ride.driverRating,
           comment: ride.driverComment,
-          createdAt: ride.driverReviewDate!,
-          fromRole: 'driver',
+          createdAt: ride.driverReviewDate ?? DateTime.now(),
+          fromUserId: ride.driverId,
+          fromUserName: ride.driverName,
+          toUserId: ride.passengerId,
         ));
       }
     }
 
-    var filtered = result.where((r) => !_looksToxic(r.comment)).toList();
-
-    switch (filter) {
-      case ReviewFilter.positive:
-        filtered = filtered.where((r) => r.isPositive).toList();
-        break;
-      case ReviewFilter.negative:
-        filtered = filtered.where((r) => r.isNegative).toList();
-        break;
+    final asDriver = await _dio.get(
+      _endpoint,
+      queryParameters: {'driverId': userId},
+    );
+    for (final raw in (asDriver.data as List)) {
+      final ride = RideModel.fromJson(raw);
+      if (ride.hasPassengerReview) {
+        items.add(ReviewItem(
+          rideId: ride.id,
+          rating: ride.passengerRating,
+          comment: ride.passengerComment,
+          createdAt: ride.passengerReviewDate ?? DateTime.now(),
+          fromUserId: ride.passengerId,
+          fromUserName: ride.passengerName,
+          toUserId: ride.driverId,
+        ));
+      }
     }
 
-    switch (sort) {
-      case ReviewSortMode.dateAsc:
-        filtered.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        break;
-      case ReviewSortMode.ratingDesc:
-        filtered.sort((a, b) => b.rating.compareTo(a.rating));
-        break;
-      case ReviewSortMode.ratingAsc:
-        filtered.sort((a, b) => a.rating.compareTo(b.rating));
-        break;
-      case ReviewSortMode.dateDesc:
-      default:
-        filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    }
-
-    return filtered;
+    var result = _applyFilter(items, filter);
+    _applySort(result, sort);
+    return result;
   }
 
   Future<void> _recalculateUserRating(String userId) async {
@@ -251,8 +184,42 @@ class ReviewRepository {
     'дурак', 'идиот', 'тупой', 'мразь', 'fuck', 'shit',
   ];
 
-  bool _looksToxic(String text) {
-    final t = text.toLowerCase();
-    return _toxicWords.any((w) => t.contains(w));
+  bool _looksToxic(ReviewItem r) {
+    final text = r.comment.toLowerCase();
+    return _toxicWords.any((w) => text.contains(w));
+  }
+
+  List<ReviewItem> _applyFilter(List<ReviewItem> reviews, String filter) {
+    var result = reviews.where((r) => !_looksToxic(r)).toList();
+
+    switch (filter) {
+      case ReviewFilter.positive:
+        return result.where((r) => r.isPositive).toList();
+      case ReviewFilter.negative:
+        return result.where((r) => r.isNegative).toList();
+      case ReviewFilter.all:
+      default:
+        return result;
+    }
+  }
+
+  void _applySort(List<ReviewItem> reviews, String sort) {
+    int cmpDate(ReviewItem a, ReviewItem b) =>
+        a.createdAt.compareTo(b.createdAt);
+
+    switch (sort) {
+      case ReviewSortMode.dateAsc:
+        reviews.sort(cmpDate);
+        break;
+      case ReviewSortMode.ratingDesc:
+        reviews.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+      case ReviewSortMode.ratingAsc:
+        reviews.sort((a, b) => a.rating.compareTo(b.rating));
+        break;
+      case ReviewSortMode.dateDesc:
+      default:
+        reviews.sort((a, b) => cmpDate(b, a));
+    }
   }
 }
