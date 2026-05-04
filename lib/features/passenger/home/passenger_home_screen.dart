@@ -113,6 +113,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
       );
       return;
     }
+
     if (_from!.id == _to!.id) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Точки отправления и назначения совпадают')),
@@ -146,6 +147,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         toAddress: _to!.name,
         price: price,
         status: RideStatus.searching,
+        createdAt: DateTime.now(),
       );
 
       final created = await _rideRepo.createRide(ride);
@@ -164,7 +166,9 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -334,7 +338,24 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Посадка: ${est.boardingFee.toStringAsFixed(0)} ₸',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        'За км: ${est.perKm.toStringAsFixed(0)} ₸ × '
+                        '${est.distanceKm.toStringAsFixed(2)} = '
+                        '${(est.perKm * est.distanceKm).toStringAsFixed(0)} ₸',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Divider(height: 16),
                       Row(
                         children: [
                           const Icon(
@@ -343,10 +364,10 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Стоимость: ${est.price.toStringAsFixed(0)} ₸',
+                            'Итого: ${est.price.toStringAsFixed(0)} ₸',
                             style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],

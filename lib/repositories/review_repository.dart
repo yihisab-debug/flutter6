@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/app_constants.dart';
 import '../models/ride_model.dart';
@@ -24,6 +25,7 @@ class ReviewItem {
   final String fromUserId;
   final String fromUserName;
   final String toUserId;
+  final String toUserName;
 
   const ReviewItem({
     required this.rideId,
@@ -33,6 +35,7 @@ class ReviewItem {
     required this.fromUserId,
     required this.fromUserName,
     required this.toUserId,
+    required this.toUserName,
   });
 
   bool get isPositive => rating >= 4;
@@ -111,6 +114,25 @@ class ReviewRepository {
     return updated;
   }
 
+  Future<List<dynamic>> _fetchRidesBy(Map<String, dynamic> query) async {
+    try {
+      final response = await _dio.get(_endpoint, queryParameters: query);
+      final data = response.data;
+
+      if (data is List) {
+        return data;
+      }
+
+      return const [];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return const [];
+      }
+
+      rethrow;
+    }
+  }
+
   Future<List<ReviewItem>> getReviewsForUser(
     String userId, {
     String sort = ReviewSortMode.dateDesc,
@@ -118,11 +140,8 @@ class ReviewRepository {
   }) async {
     final items = <ReviewItem>[];
 
-    final asPassenger = await _dio.get(
-      _endpoint,
-      queryParameters: {'passengerId': userId},
-    );
-    for (final raw in (asPassenger.data as List)) {
+    final asPassenger = await _fetchRidesBy({'passengerId': userId});
+    for (final raw in asPassenger) {
       final ride = RideModel.fromJson(raw);
       if (ride.hasDriverReview) {
         items.add(ReviewItem(
@@ -133,15 +152,13 @@ class ReviewRepository {
           fromUserId: ride.driverId,
           fromUserName: ride.driverName,
           toUserId: ride.passengerId,
+          toUserName: ride.passengerName,
         ));
       }
     }
 
-    final asDriver = await _dio.get(
-      _endpoint,
-      queryParameters: {'driverId': userId},
-    );
-    for (final raw in (asDriver.data as List)) {
+    final asDriver = await _fetchRidesBy({'driverId': userId});
+    for (final raw in asDriver) {
       final ride = RideModel.fromJson(raw);
       if (ride.hasPassengerReview) {
         items.add(ReviewItem(
@@ -152,6 +169,53 @@ class ReviewRepository {
           fromUserId: ride.passengerId,
           fromUserName: ride.passengerName,
           toUserId: ride.driverId,
+          toUserName: ride.driverName,
+        ));
+      }
+    }
+
+    var result = _applyFilter(items, filter);
+    _applySort(result, sort);
+    return result;
+  }
+
+  Future<List<ReviewItem>> getReviewsByUser(
+    String userId, {
+    String sort = ReviewSortMode.dateDesc,
+    String filter = ReviewFilter.all,
+  }) async {
+    final items = <ReviewItem>[];
+
+    final asPassenger = await _fetchRidesBy({'passengerId': userId});
+    for (final raw in asPassenger) {
+      final ride = RideModel.fromJson(raw);
+      if (ride.hasPassengerReview) {
+        items.add(ReviewItem(
+          rideId: ride.id,
+          rating: ride.passengerRating,
+          comment: ride.passengerComment,
+          createdAt: ride.passengerReviewDate ?? DateTime.now(),
+          fromUserId: ride.passengerId,
+          fromUserName: ride.passengerName,
+          toUserId: ride.driverId,
+          toUserName: ride.driverName,
+        ));
+      }
+    }
+
+    final asDriver = await _fetchRidesBy({'driverId': userId});
+    for (final raw in asDriver) {
+      final ride = RideModel.fromJson(raw);
+      if (ride.hasDriverReview) {
+        items.add(ReviewItem(
+          rideId: ride.id,
+          rating: ride.driverRating,
+          comment: ride.driverComment,
+          createdAt: ride.driverReviewDate ?? DateTime.now(),
+          fromUserId: ride.driverId,
+          fromUserName: ride.driverName,
+          toUserId: ride.passengerId,
+          toUserName: ride.passengerName,
         ));
       }
     }

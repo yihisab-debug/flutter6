@@ -24,12 +24,21 @@ class PricingService {
   }
 
   static double price(double distanceKm) {
-    return AppConstants.basePrice + distanceKm * AppConstants.pricePerKm;
+    final calculated =
+        AppConstants.boardingFee + distanceKm * AppConstants.pricePerKm;
+    return calculated < AppConstants.minPrice
+        ? AppConstants.minPrice
+        : calculated;
   }
 
   static TripEstimate estimate(LocationModel from, LocationModel to) {
     final d = distanceKm(from, to);
-    return TripEstimate(distanceKm: d, price: price(d));
+    return TripEstimate(
+      distanceKm: d,
+      price: price(d),
+      boardingFee: AppConstants.boardingFee,
+      perKm: AppConstants.pricePerKm,
+    );
   }
 
   static double _toRad(double deg) => deg * math.pi / 180.0;
@@ -38,6 +47,13 @@ class PricingService {
 class TripEstimate {
   final double distanceKm;
   final double price;
+  final double boardingFee;
+  final double perKm;
 
-  const TripEstimate({required this.distanceKm, required this.price});
+  const TripEstimate({
+    required this.distanceKm,
+    required this.price,
+    required this.boardingFee,
+    required this.perKm,
+  });
 }

@@ -67,26 +67,42 @@ class ProfileScreen extends StatelessWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.star, color: Colors.amber),
-              title: Row(
-                children: [
-                  Text(
-                    user.ratingCount > 0
-                        ? user.rating.toStringAsFixed(1)
-                        : '—',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (user.ratingCount > 0)
-                    RatingStars(value: user.rating, size: 18),
-                ],
+              title: const Text(
+                'Отзывы',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              subtitle: Text(
-                user.ratingCount > 0
-                    ? 'Отзывов: ${user.ratingCount}'
-                    : 'Пока нет отзывов',
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      user.ratingCount > 0
+                          ? user.rating.toStringAsFixed(1)
+                          : '—',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (user.ratingCount > 0)
+                      RatingStars(value: user.rating, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        user.ratingCount > 0
+                            ? 'Всего: ${user.ratingCount}'
+                            : '',
+                        style: const TextStyle(color: Colors.grey),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {

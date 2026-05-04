@@ -129,6 +129,7 @@ class RideModel {
       'toAddress': toAddress,
       'price': price,
       'status': status,
+      'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
       'passengerRating': passengerRating,
       'passengerComment': passengerComment,
       'passengerReviewAt': passengerReviewAt,

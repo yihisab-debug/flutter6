@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/app_constants.dart';
 import '../models/ride_model.dart';
@@ -8,6 +9,25 @@ class RideRepository {
   final _dio = ApiClient().dio;
   final _userRepo = UserRepository();
   final _endpoint = AppConstants.ridesEndpoint;
+
+  Future<List<dynamic>> _safeList(Map<String, dynamic> query) async {
+    try {
+      final response = await _dio.get(_endpoint, queryParameters: query);
+      final data = response.data;
+
+      if (data is List) {
+        return data;
+      }
+
+      return const [];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return const [];
+      }
+
+      rethrow;
+    }
+  }
 
   Future<RideModel> createRide(RideModel ride) async {
     final response = await _dio.post(_endpoint, data: ride.toJson());
@@ -20,54 +40,34 @@ class RideRepository {
   }
 
   Future<List<RideModel>> getAvailableRides() async {
-    final response = await _dio.get(
-      _endpoint,
-      queryParameters: {
-        'status': RideStatus.searching,
-        'sortBy': 'createdAt',
-        'order': 'desc',
-      },
-    );
-
-    final list = response.data as List;
+    final list = await _safeList({
+      'status': RideStatus.searching,
+      'sortBy': 'createdAt',
+      'order': 'desc',
+    });
     return list.map((e) => RideModel.fromJson(e)).toList();
   }
 
   Future<List<RideModel>> getPassengerHistory(String passengerId) async {
-    final response = await _dio.get(
-      _endpoint,
-      queryParameters: {
-        'passengerId': passengerId,
-        'sortBy': 'createdAt',
-        'order': 'desc',
-      },
-    );
-
-    final list = response.data as List;
+    final list = await _safeList({
+      'passengerId': passengerId,
+      'sortBy': 'createdAt',
+      'order': 'desc',
+    });
     return list.map((e) => RideModel.fromJson(e)).toList();
   }
 
   Future<List<RideModel>> getDriverHistory(String driverId) async {
-    final response = await _dio.get(
-      _endpoint,
-      queryParameters: {
-        'driverId': driverId,
-        'sortBy': 'createdAt',
-        'order': 'desc',
-      },
-    );
-
-    final list = response.data as List;
+    final list = await _safeList({
+      'driverId': driverId,
+      'sortBy': 'createdAt',
+      'order': 'desc',
+    });
     return list.map((e) => RideModel.fromJson(e)).toList();
   }
 
   Future<RideModel?> getActiveRideForPassenger(String passengerId) async {
-    final response = await _dio.get(
-      _endpoint,
-      queryParameters: {'passengerId': passengerId},
-    );
-
-    final list = response.data as List;
+    final list = await _safeList({'passengerId': passengerId});
     for (final item in list) {
       final ride = RideModel.fromJson(item);
       if (ride.status != RideStatus.completed &&
@@ -79,12 +79,7 @@ class RideRepository {
   }
 
   Future<RideModel?> getActiveRideForDriver(String driverId) async {
-    final response = await _dio.get(
-      _endpoint,
-      queryParameters: {'driverId': driverId},
-    );
-
-    final list = response.data as List;
+    final list = await _safeList({'driverId': driverId});
     for (final item in list) {
       final ride = RideModel.fromJson(item);
       if (ride.status == RideStatus.accepted ||
