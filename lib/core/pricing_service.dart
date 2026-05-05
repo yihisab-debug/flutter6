@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import '../models/location_model.dart';
+import '../models/ride_model.dart';
 import 'app_constants.dart';
 
 class PricingService {
@@ -23,7 +24,7 @@ class PricingService {
     return _earthRadiusKm * c;
   }
 
-  static double price(double distanceKm) {
+  static double _basicPrice(double distanceKm) {
     final calculated =
         AppConstants.boardingFee + distanceKm * AppConstants.pricePerKm;
     return calculated < AppConstants.minPrice
@@ -31,13 +32,29 @@ class PricingService {
         : calculated;
   }
 
-  static TripEstimate estimate(LocationModel from, LocationModel to) {
+  static double price(double distanceKm, {String type = RideType.taxi}) {
+    final base = _basicPrice(distanceKm);
+    if (type == RideType.delivery) {
+      return base + AppConstants.deliveryFee;
+    }
+    return base;
+  }
+
+  static TripEstimate estimate(
+    LocationModel from,
+    LocationModel to, {
+    String type = RideType.taxi,
+  }) {
     final d = distanceKm(from, to);
+    final basic = _basicPrice(d);
+    final isDelivery = type == RideType.delivery;
     return TripEstimate(
+      type: type,
       distanceKm: d,
-      price: price(d),
+      price: isDelivery ? basic + AppConstants.deliveryFee : basic,
       boardingFee: AppConstants.boardingFee,
       perKm: AppConstants.pricePerKm,
+      deliveryFee: isDelivery ? AppConstants.deliveryFee : 0,
     );
   }
 
@@ -45,15 +62,21 @@ class PricingService {
 }
 
 class TripEstimate {
+  final String type;
   final double distanceKm;
   final double price;
   final double boardingFee;
   final double perKm;
+  final double deliveryFee;
 
   const TripEstimate({
+    required this.type,
     required this.distanceKm,
     required this.price,
     required this.boardingFee,
     required this.perKm,
+    this.deliveryFee = 0,
   });
+
+  bool get isDelivery => type == RideType.delivery;
 }

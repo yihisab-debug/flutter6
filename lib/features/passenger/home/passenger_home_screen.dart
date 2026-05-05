@@ -24,8 +24,16 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
 
   late final List<LocationModel> _locations;
 
+  String _orderType = RideType.taxi;
+
   LocationModel? _from;
   LocationModel? _to;
+
+  final _senderNameCtrl = TextEditingController();
+  final _receiverNameCtrl = TextEditingController();
+  final _receiverPhoneCtrl = TextEditingController();
+  final _packageDescCtrl = TextEditingController();
+  final _weightCtrl = TextEditingController();
 
   bool _loading = false;
 
@@ -33,12 +41,27 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   void initState() {
     super.initState();
     _locations = _locationRepo.getAll();
+
+    final user = context.read<AuthProvider>().user;
+    if (user != null) {
+      _senderNameCtrl.text = user.name;
+    }
+  }
+
+  @override
+  void dispose() {
+    _senderNameCtrl.dispose();
+    _receiverNameCtrl.dispose();
+    _receiverPhoneCtrl.dispose();
+    _packageDescCtrl.dispose();
+    _weightCtrl.dispose();
+    super.dispose();
   }
 
   TripEstimate? get _estimate {
     if (_from == null || _to == null) return null;
     if (_from!.id == _to!.id) return null;
-    return PricingService.estimate(_from!, _to!);
+    return PricingService.estimate(_from!, _to!, type: _orderType);
   }
 
   Future<void> _topUp() async {
@@ -71,7 +94,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
 
       if (active == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('У вас нет активных поездок')),
+          const SnackBar(content: Text('У вас нет активных заказов')),
         );
         return;
       }
@@ -106,7 +129,23 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     });
   }
 
-  Future<void> _orderTaxi() async {
+  String? _validateDeliveryFields() {
+    if (_senderNameCtrl.text.trim().isEmpty) {
+      return 'Укажите имя отправителя';
+    }
+    if (_receiverNameCtrl.text.trim().isEmpty) {
+      return 'Укажите имя получателя';
+    }
+    if (_receiverPhoneCtrl.text.trim().isEmpty) {
+      return 'Укажите телефон получателя';
+    }
+    if (_packageDescCtrl.text.trim().isEmpty) {
+      return 'Опишите посылку';
+    }
+    return null;
+  }
+
+  Future<void> _placeOrder() async {
     if (_from == null || _to == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Выберите точки A и B')),
@@ -119,6 +158,16 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         const SnackBar(content: Text('Точки отправления и назначения совпадают')),
       );
       return;
+    }
+
+    if (_orderType == RideType.delivery) {
+      final err = _validateDeliveryFields();
+      if (err != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err)),
+        );
+        return;
+      }
     }
 
     final est = _estimate!;
@@ -139,8 +188,15 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     setState(() => _loading = true);
 
     try {
+      final isDelivery = _orderType == RideType.delivery;
+      final weight = double.tryParse(
+            _weightCtrl.text.trim().replaceAll(',', '.'),
+          ) ??
+          0;
+
       final ride = RideModel(
         id: '',
+        type: _orderType,
         passengerId: user.id,
         passengerName: user.name,
         fromAddress: _from!.name,
@@ -148,6 +204,13 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         price: price,
         status: RideStatus.searching,
         createdAt: DateTime.now(),
+        senderName: isDelivery ? _senderNameCtrl.text.trim() : '',
+        receiverName: isDelivery ? _receiverNameCtrl.text.trim() : '',
+        receiverPhone: isDelivery ? _receiverPhoneCtrl.text.trim() : '',
+        packageDescription: isDelivery ? _packageDescCtrl.text.trim() : '',
+        weight: isDelivery ? weight : 0,
+
+        deliveryFee: isDelivery ? est.deliveryFee : 0,
       );
 
       final created = await _rideRepo.createRide(ride);
@@ -170,6 +233,70 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Widget _typeSwitcher() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            Expanded(
+              child: _typeButton(
+                label: 'Такси',
+                icon: Icons.local_taxi,
+                value: RideType.taxi,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _typeButton(
+                label: 'Доставка',
+                icon: Icons.local_shipping,
+                value: RideType.delivery,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _typeButton({
+    required String label,
+    required IconData icon,
+    required String value,
+  }) {
+    final selected = _orderType == value;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() => _orderType = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: selected ? Colors.amber : Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: selected ? Colors.black : Colors.grey[700],
+              size: 28,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? Colors.black : Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _locationDropdown({
@@ -201,18 +328,157 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     );
   }
 
+  Widget _deliveryFields() {
+    return Card(
+      color: Colors.deepPurple[50],
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.inventory_2, color: Colors.deepPurple),
+                SizedBox(width: 8),
+                Text(
+                  'Данные посылки',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _senderNameCtrl,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.person_outline),
+                labelText: 'Отправитель',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _receiverNameCtrl,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.person),
+                labelText: 'Получатель',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _receiverPhoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.phone),
+                labelText: 'Телефон получателя',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _packageDescCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.description),
+                labelText: 'Описание посылки',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _weightCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.scale),
+                labelText: 'Вес, кг (необязательно)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _estimateCard(TripEstimate est) {
+    final isDelivery = est.isDelivery;
+    return Card(
+      color: Colors.blue[50],
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.route, color: Colors.blue),
+                const SizedBox(width: 8),
+                Text(
+                  'Расстояние: ${est.distanceKm.toStringAsFixed(2)} км',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Посадка: ${est.boardingFee.toStringAsFixed(0)} ₸',
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            Text(
+              'За км: ${est.perKm.toStringAsFixed(0)} ₸ × '
+              '${est.distanceKm.toStringAsFixed(2)} = '
+              '${(est.perKm * est.distanceKm).toStringAsFixed(0)} ₸',
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            if (isDelivery)
+              Text(
+                'Доплата за доставку: ${est.deliveryFee.toStringAsFixed(0)} ₸',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.deepPurple,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            const Divider(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.attach_money, color: Colors.green),
+                const SizedBox(width: 8),
+                Text(
+                  'Итого: ${est.price.toStringAsFixed(0)} ₸',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
     final est = _estimate;
+    final isDelivery = _orderType == RideType.delivery;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Taxi App'),
         actions: [
           IconButton(
-            tooltip: 'Текущая поездка',
+            tooltip: 'Текущий заказ',
             icon: const Icon(Icons.directions_car),
             onPressed: _openCurrentRide,
           ),
@@ -292,9 +558,12 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            _typeSwitcher(),
+            const SizedBox(height: 16),
             _locationDropdown(
-              label: 'Откуда (точка A)',
+              label: isDelivery ? 'Откуда забрать' : 'Откуда (точка A)',
               icon: Icons.my_location,
               iconColor: Colors.green,
               value: _from,
@@ -310,85 +579,34 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             ),
             const SizedBox(height: 8),
             _locationDropdown(
-              label: 'Куда (точка B)',
+              label: isDelivery ? 'Куда доставить' : 'Куда (точка B)',
               icon: Icons.location_on,
               iconColor: Colors.red,
               value: _to,
               onChanged: (v) => _to = v,
             ),
-            const SizedBox(height: 20),
-            if (est != null)
-              Card(
-                color: Colors.blue[50],
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.route, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Расстояние: ${est.distanceKm.toStringAsFixed(2)} км',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Посадка: ${est.boardingFee.toStringAsFixed(0)} ₸',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        'За км: ${est.perKm.toStringAsFixed(0)} ₸ × '
-                        '${est.distanceKm.toStringAsFixed(2)} = '
-                        '${(est.perKm * est.distanceKm).toStringAsFixed(0)} ₸',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const Divider(height: 16),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.attach_money,
-                            color: Colors.green,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Итого: ${est.price.toStringAsFixed(0)} ₸',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            const SizedBox(height: 16),
+
+            if (isDelivery) ...[
+              _deliveryFields(),
+              const SizedBox(height: 16),
+            ],
+            if (est != null) _estimateCard(est),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              icon: const Icon(Icons.local_taxi),
-              label: const Text(
-                'Заказать такси',
-                style: TextStyle(fontSize: 18),
+              icon: Icon(
+                isDelivery ? Icons.local_shipping : Icons.local_taxi,
+              ),
+              label: Text(
+                isDelivery ? 'Заказать доставку' : 'Заказать такси',
+                style: const TextStyle(fontSize: 18),
               ),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.amber,
-                foregroundColor: Colors.black,
+                backgroundColor: isDelivery ? Colors.deepPurple : Colors.amber,
+                foregroundColor: isDelivery ? Colors.white : Colors.black,
               ),
-              onPressed: (_loading || est == null) ? null : _orderTaxi,
+              onPressed: (_loading || est == null) ? null : _placeOrder,
             ),
           ],
         ),

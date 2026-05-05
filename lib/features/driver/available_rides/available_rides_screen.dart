@@ -23,6 +23,8 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
   List<RideModel> _rides = [];
   bool _loading = true;
 
+  String _filter = 'all';
+
   @override
   void initState() {
     super.initState();
@@ -53,7 +55,7 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
 
       if (active == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('У вас нет активных поездок')),
+          const SnackBar(content: Text('У вас нет активных заказов')),
         );
         return;
       }
@@ -123,6 +125,11 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
     super.dispose();
   }
 
+  List<RideModel> get _filtered {
+    if (_filter == 'all') return _rides;
+    return _rides.where((r) => r.type == _filter).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,7 +137,7 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
         title: const Text('Доступные заказы'),
         actions: [
           IconButton(
-            tooltip: 'Текущая поездка',
+            tooltip: 'Текущий заказ',
             icon: const Icon(Icons.directions_car),
             onPressed: _openCurrentRide,
           ),
@@ -158,7 +165,56 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          _filterBar(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _filterChip(label: 'Все', value: 'all'),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _filterChip(label: 'Такси', value: RideType.taxi),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _filterChip(label: 'Доставка', value: RideType.delivery),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterChip({required String label, required String value}) {
+    final selected = _filter == value;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() => _filter = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? Colors.amber : Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            color: selected ? Colors.black : Colors.grey[800],
+          ),
+        ),
+      ),
     );
   }
 
@@ -167,58 +223,130 @@ class _AvailableRidesScreenState extends State<AvailableRidesScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_rides.isEmpty) {
+    final list = _filtered;
+
+    if (list.isEmpty) {
       return const Center(child: Text('Нет доступных заказов'));
     }
 
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
-        itemCount: _rides.length,
+        itemCount: list.length,
         itemBuilder: (ctx, i) {
-          final r = _rides[i];
-          return Card(
-            margin: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 6,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Пассажир: ${r.passengerName}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+          final r = list[i];
+          return _rideCard(r);
+        },
+      ),
+    );
+  }
+
+  Widget _rideCard(RideModel r) {
+    final isDelivery = r.isDelivery;
+    final accentColor = isDelivery ? Colors.deepPurple : Colors.amber[800]!;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 6,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                  const SizedBox(height: 4),
-                  Text('Откуда: ${r.fromAddress}'),
-                  Text('Куда: ${r.toAddress}'),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Доход: ${r.price.toStringAsFixed(0)} ₸',
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  decoration: BoxDecoration(
+                    color: isDelivery
+                        ? Colors.deepPurple[50]
+                        : Colors.amber[50],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: accentColor),
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isDelivery
+                            ? Icons.local_shipping
+                            : Icons.local_taxi,
+                        size: 16,
+                        color: accentColor,
                       ),
-                      onPressed: () => _accept(r),
-                      child: const Text('Принять заказ'),
-                    ),
+                      const SizedBox(width: 4),
+                      Text(
+                        RideType.label(r.type),
+                        style: TextStyle(
+                          color: accentColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isDelivery
+                  ? 'Клиент: ${r.passengerName}'
+                  : 'Пассажир: ${r.passengerName}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isDelivery
+                  ? 'Забрать: ${r.fromAddress}'
+                  : 'Откуда: ${r.fromAddress}',
+            ),
+            Text(
+              isDelivery
+                  ? 'Доставить: ${r.toAddress}'
+                  : 'Куда: ${r.toAddress}',
+            ),
+            if (isDelivery && r.packageDescription.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Посылка: ${r.packageDescription}',
+                style: const TextStyle(color: Colors.black87),
+              ),
+            ],
+            if (isDelivery && r.weight > 0)
+              Text(
+                'Вес: ${r.weight.toStringAsFixed(1)} кг',
+                style: const TextStyle(color: Colors.black87),
+              ),
+            const SizedBox(height: 4),
+            Text(
+              'Доход: ${r.price.toStringAsFixed(0)} ₸',
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          );
-        },
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => _accept(r),
+                child: Text(
+                  isDelivery ? 'Принять доставку' : 'Принять заказ',
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

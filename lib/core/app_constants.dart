@@ -10,6 +10,8 @@ class AppConstants {
   static const double pricePerKm = 150.0;
   static const double minPrice = 700.0;
 
+  static const double deliveryFee = 400.0;
+
   static const Duration pollingInterval = Duration(seconds: 3);
 
   static const String keyUserId = 'user_id';

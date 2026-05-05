@@ -70,8 +70,7 @@ class RideRepository {
     final list = await _safeList({'passengerId': passengerId});
     for (final item in list) {
       final ride = RideModel.fromJson(item);
-      if (ride.status != RideStatus.completed &&
-          ride.status != RideStatus.cancelled) {
+      if (!ride.isFinished) {
         return ride;
       }
     }
@@ -82,8 +81,10 @@ class RideRepository {
     final list = await _safeList({'driverId': driverId});
     for (final item in list) {
       final ride = RideModel.fromJson(item);
+
       if (ride.status == RideStatus.accepted ||
-          ride.status == RideStatus.inProgress) {
+          ride.status == RideStatus.inProgress ||
+          ride.status == RideStatus.pickedUp) {
         return ride;
       }
     }
@@ -107,6 +108,34 @@ class RideRepository {
     final response = await _dio.put(
       '$_endpoint/$rideId',
       data: {'status': RideStatus.inProgress},
+    );
+    return RideModel.fromJson(response.data);
+  }
+
+  Future<RideModel> markPickedUp(String rideId) async {
+    final response = await _dio.put(
+      '$_endpoint/$rideId',
+      data: {'status': RideStatus.pickedUp},
+    );
+    return RideModel.fromJson(response.data);
+  }
+
+  Future<RideModel> markDelivered(RideModel ride) async {
+    final passenger = await _userRepo.getUserById(ride.passengerId);
+    await _userRepo.updateBalance(
+      passenger.id,
+      passenger.balance - ride.price,
+    );
+
+    final driver = await _userRepo.getUserById(ride.driverId);
+    await _userRepo.updateBalance(
+      driver.id,
+      driver.balance + ride.price,
+    );
+
+    final response = await _dio.put(
+      '$_endpoint/${ride.id}',
+      data: {'status': RideStatus.delivered},
     );
     return RideModel.fromJson(response.data);
   }

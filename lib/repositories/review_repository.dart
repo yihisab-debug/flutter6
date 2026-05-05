@@ -57,8 +57,8 @@ class ReviewRepository {
     required int rating,
     required String comment,
   }) async {
-    if (ride.status != RideStatus.completed) {
-      throw Exception('Отзыв доступен только после завершения поездки');
+    if (!ride.isSuccessfullyCompleted) {
+      throw Exception('Отзыв доступен только после завершения заказа');
     }
     if (ride.hasPassengerReview && !ride.isPassengerReviewEditable) {
       throw Exception(
@@ -88,8 +88,8 @@ class ReviewRepository {
     required int rating,
     required String comment,
   }) async {
-    if (ride.status != RideStatus.completed) {
-      throw Exception('Отзыв доступен только после завершения поездки');
+    if (!ride.isSuccessfullyCompleted) {
+      throw Exception('Отзыв доступен только после завершения заказа');
     }
     if (ride.hasDriverReview && !ride.isDriverReviewEditable) {
       throw Exception(

@@ -292,7 +292,7 @@ class _RideReviewsScreenState extends State<RideReviewsScreen> {
   }
 
   Widget _buildEmptyMine() {
-    final eligible = _ride.status == RideStatus.completed;
+    final eligible = _ride.isSuccessfullyCompleted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

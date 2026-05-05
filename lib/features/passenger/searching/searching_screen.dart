@@ -41,8 +41,8 @@ class _SearchingScreenState extends State<SearchingScreen> {
         _timer?.cancel();
 
         NotificationService().showLocalNotification(
-          title: 'Водитель найден!',
-          body: '${ride.driverName} едет к вам',
+          title: ride.isDelivery ? 'Курьер найден!' : 'Водитель найден!',
+          body: '${ride.driverName} ${ride.isDelivery ? "едет за посылкой" : "едет к вам"}',
         );
 
         if (mounted) {
@@ -56,8 +56,7 @@ class _SearchingScreenState extends State<SearchingScreen> {
         _timer?.cancel();
         if (mounted) Navigator.of(context).pop();
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _cancel() async {
@@ -74,8 +73,11 @@ class _SearchingScreenState extends State<SearchingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDelivery = _ride?.isDelivery ?? false;
     return Scaffold(
-      appBar: AppBar(title: const Text('Поиск водителя')),
+      appBar: AppBar(
+        title: Text(isDelivery ? 'Поиск курьера' : 'Поиск водителя'),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -84,9 +86,11 @@ class _SearchingScreenState extends State<SearchingScreen> {
             children: [
               const CircularProgressIndicator(),
               const SizedBox(height: 24),
-              const Text(
-                'Ищем для вас водителя...',
-                style: TextStyle(fontSize: 18),
+              Text(
+                isDelivery
+                    ? 'Ищем для вас курьера...'
+                    : 'Ищем для вас водителя...',
+                style: const TextStyle(fontSize: 18),
               ),
               const SizedBox(height: 8),
               if (_ride != null)

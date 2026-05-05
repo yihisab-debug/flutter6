@@ -32,10 +32,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   void _openRideReviews(RideModel ride) {
-    if (ride.status != RideStatus.completed) {
+    if (!ride.isSuccessfullyCompleted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Отзывы доступны только для завершённых поездок'),
+          content: Text('Отзывы доступны только для завершённых заказов'),
         ),
       );
       return;
@@ -51,7 +51,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('История поездок')),
+      appBar: AppBar(title: const Text('История заказов')),
       body: FutureBuilder<List<RideModel>>(
         future: _future,
         builder: (context, snap) {
@@ -98,7 +98,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           Padding(
                             padding: EdgeInsets.symmetric(horizontal: 32),
                             child: Text(
-                              'У вас пока нет поездок',
+                              'У вас пока нет заказов',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 14,
@@ -125,38 +125,77 @@ class _HistoryScreenState extends State<HistoryScreen> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (ctx, i) {
                 final r = rides[i];
-                final completed = r.status == RideStatus.completed;
-                return ListTile(
-                  leading: Icon(
-                    completed ? Icons.check_circle : Icons.cancel,
-                    color: completed ? Colors.green : Colors.redAccent,
-                  ),
-                  title: Text('${r.fromAddress} → ${r.toAddress}'),
-                  subtitle: Text(
-                    r.createdAt != null
-                        ? DateFormat('dd.MM.yyyy HH:mm').format(r.createdAt!)
-                        : '',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('${r.price.toStringAsFixed(0)} ₸'),
-                      if (completed) ...[
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: Colors.grey,
-                        ),
-                      ],
-                    ],
-                  ),
-                  onTap: completed ? () => _openRideReviews(r) : null,
-                );
+                return _historyTile(r);
               },
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _historyTile(RideModel r) {
+    final completed = r.isSuccessfullyCompleted;
+    final isDelivery = r.isDelivery;
+
+    final leadingIcon = completed
+        ? (isDelivery ? Icons.local_shipping : Icons.check_circle)
+        : Icons.cancel;
+    final leadingColor = completed
+        ? (isDelivery ? Colors.deepPurple : Colors.green)
+        : Colors.redAccent;
+
+    return ListTile(
+      leading: Icon(leadingIcon, color: leadingColor),
+      title: Row(
+        children: [
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color:
+                  isDelivery ? Colors.deepPurple[50] : Colors.amber[50],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color:
+                    isDelivery ? Colors.deepPurple : Colors.amber[800]!,
+              ),
+            ),
+            child: Text(
+              RideType.label(r.type),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color:
+                    isDelivery ? Colors.deepPurple : Colors.amber[800],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${r.fromAddress} → ${r.toAddress}',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      subtitle: Text(
+        r.createdAt != null
+            ? DateFormat('dd.MM.yyyy HH:mm').format(r.createdAt!)
+            : '',
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${r.price.toStringAsFixed(0)} ₸'),
+          if (completed) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ],
+      ),
+      onTap: completed ? () => _openRideReviews(r) : null,
     );
   }
 }

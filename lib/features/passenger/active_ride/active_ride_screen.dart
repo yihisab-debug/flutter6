@@ -44,19 +44,18 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
 
       if (prevStatus != ride.status) {
         NotificationService().showLocalNotification(
-          title: 'Статус поездки',
-          body: RideStatus.label(ride.status),
+          title: ride.isDelivery ? 'Статус доставки' : 'Статус поездки',
+          body: RideStatus.labelForType(ride.status, ride.type),
         );
       }
 
-      if (ride.status == RideStatus.completed ||
-          ride.status == RideStatus.cancelled) {
+      if (ride.isFinished) {
         _timer?.cancel();
         await context.read<AuthProvider>().refreshUser();
 
         if (!mounted) return;
 
-        if (ride.status == RideStatus.completed) {
+        if (ride.isSuccessfullyCompleted) {
           final user = context.read<AuthProvider>().user!;
 
           await Navigator.of(context).push<bool>(
@@ -80,7 +79,11 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Поездка отменена')),
+            SnackBar(
+              content: Text(
+                ride.isDelivery ? 'Доставка отменена' : 'Поездка отменена',
+              ),
+            ),
           );
           Navigator.of(context).pop();
         }
@@ -103,14 +106,18 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
     }
 
     final ride = _ride!;
+    final isDelivery = ride.isDelivery;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Поездка')),
-      body: Padding(
+      appBar: AppBar(title: Text(isDelivery ? 'Доставка' : 'Поездка')),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+
+            _typeBadge(ride),
+            const SizedBox(height: 12),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -118,18 +125,30 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Статус: ${RideStatus.label(ride.status)}',
+                      'Статус: ${RideStatus.labelForType(ride.status, ride.type)}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Divider(),
-                    _row(Icons.person, 'Водитель', ride.driverName),
+                    _row(
+                      Icons.person,
+                      isDelivery ? 'Курьер' : 'Водитель',
+                      ride.driverName,
+                    ),
                     _row(Icons.directions_car, 'Авто', ride.carInfo),
                     const Divider(),
-                    _row(Icons.my_location, 'Откуда', ride.fromAddress),
-                    _row(Icons.location_on, 'Куда', ride.toAddress),
+                    _row(
+                      Icons.my_location,
+                      isDelivery ? 'Откуда забрать' : 'Откуда',
+                      ride.fromAddress,
+                    ),
+                    _row(
+                      Icons.location_on,
+                      isDelivery ? 'Куда доставить' : 'Куда',
+                      ride.toAddress,
+                    ),
                     const Divider(),
                     _row(
                       Icons.attach_money,
@@ -140,6 +159,80 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
                 ),
               ),
             ),
+
+            if (isDelivery) ...[
+              const SizedBox(height: 12),
+              _deliveryInfoCard(ride),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _typeBadge(RideModel ride) {
+    final isDelivery = ride.isDelivery;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDelivery ? Colors.deepPurple[50] : Colors.amber[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDelivery ? Colors.deepPurple : Colors.amber,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isDelivery ? Icons.local_shipping : Icons.local_taxi,
+            color: isDelivery ? Colors.deepPurple : Colors.amber[800],
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Тип: ${RideType.label(ride.type)}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDelivery ? Colors.deepPurple : Colors.amber[800],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _deliveryInfoCard(RideModel ride) {
+    return Card(
+      color: Colors.deepPurple[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.inventory_2, color: Colors.deepPurple),
+                SizedBox(width: 8),
+                Text(
+                  'Информация о посылке',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(),
+            _row(Icons.person_outline, 'Отправитель', ride.senderName),
+            _row(Icons.person, 'Получатель', ride.receiverName),
+            _row(Icons.phone, 'Телефон', ride.receiverPhone),
+            _row(Icons.description, 'Описание', ride.packageDescription),
+            if (ride.weight > 0)
+              _row(
+                Icons.scale,
+                'Вес',
+                '${ride.weight.toStringAsFixed(1)} кг',
+              ),
           ],
         ),
       ),
@@ -150,13 +243,14 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 20, color: Colors.grey),
           const SizedBox(width: 8),
           Text('$label: ', style: const TextStyle(color: Colors.grey)),
           Expanded(
             child: Text(
-              value,
+              value.isEmpty ? '—' : value,
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),

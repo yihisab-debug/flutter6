@@ -43,7 +43,7 @@ class _SubmitReviewScreenState extends State<SubmitReviewScreen> {
           ? _ride.isPassengerReviewEditable
           : _ride.isDriverReviewEditable);
 
-  bool get _rideEligible => _ride.status == RideStatus.completed;
+  bool get _rideEligible => _ride.isSuccessfullyCompleted;
 
   @override
   void initState() {
