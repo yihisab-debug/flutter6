@@ -12,19 +12,22 @@ class AuthFlowResult {
   final String? email;
   final String? name;
   final String? password;
+  final String? phone;
 
   AuthFlowResult.existingUser(this.user)
       : needsRole = false,
         firebaseUid = null,
         email = null,
         name = null,
-        password = null;
+        password = null,
+        phone = null;
 
   AuthFlowResult.needsRole({
     required String uid,
     required String mail,
     required String userName,
     this.password,
+    this.phone,
   })  : user = null,
         needsRole = true,
         firebaseUid = uid,
@@ -154,6 +157,137 @@ class AuthRepository {
     final created = await _userRepo.createUser(user);
     await _saveSession(created.id, firebaseUid);
     return created;
+  }
+
+  /// Отправляет SMS с кодом подтверждения на указанный номер.
+  ///
+  /// Колбэки:
+  ///   [onCodeSent]      — SMS отправлено, пришёл verificationId. Передайте его
+  ///                        в [verifyPhoneCode] вместе с кодом, который введёт
+  ///                        пользователь.
+  ///   [onAutoVerified]  — на Android может сработать авто-перехват SMS:
+  ///                        Firebase сам введёт код за пользователя и сразу
+  ///                        выполнит вход. В этом случае шаг ввода кода
+  ///                        пропускается, AuthFlowResult приходит сразу.
+  ///   [onFailed]        — ошибка отправки. Текст уже переведён на русский.
+  ///
+  /// ВАЖНО про лимиты Firebase:
+  ///   - На бесплатном плане Spark реальные SMS НЕ отправляются вообще
+  ///     (получите код 17499 BILLING_NOT_ENABLED).
+  ///   - Для разработки используйте "Phone numbers for testing" в Firebase
+  ///     Console — для них SMS не отправляется, а Firebase принимает
+  ///     заранее заданный код.
+  ///   - Для реальных SMS нужен план Blaze + платная тарификация SMS.
+  ///   - Слишком много неудачных попыток подряд → Firebase блокирует
+  ///     устройство на ~24 часа (код 17010).
+  Future<void> sendPhoneVerificationCode({
+    required String phoneNumber,
+    required void Function(String verificationId, int? resendToken) onCodeSent,
+    required void Function(AuthFlowResult result) onAutoVerified,
+    required void Function(String error) onFailed,
+  }) async {
+    await _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        try {
+          final result = await _signInWithPhoneCredential(
+            credential: credential,
+            phoneNumber: phoneNumber,
+          );
+          onAutoVerified(result);
+        } catch (e) {
+          onFailed(e.toString().replaceFirst('Exception: ', ''));
+        }
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        // Маппим коды ошибок Firebase в понятные пользователю сообщения.
+        if (e.code == 'invalid-phone-number') {
+          onFailed('Неверный формат номера телефона');
+        } else if (e.code == 'too-many-requests') {
+          onFailed('Слишком много попыток. Попробуйте позже');
+        } else if (e.code == 'quota-exceeded') {
+          onFailed('Превышен лимит SMS. Попробуйте позже');
+        } else if (e.message?.contains('TOO_SHORT') == true ||
+            e.message?.contains('TOO_LONG') == true) {
+          onFailed('Неверный формат номера. Введите +7 и 10 цифр');
+        } else if (e.message?.contains('BILLING_NOT_ENABLED') == true) {
+          // Firebase Spark больше не отправляет реальные SMS.
+          // Используйте тестовые номера или перейдите на план Blaze.
+          onFailed(
+            'SMS на реальные номера временно недоступны. '
+            'Используйте тестовый номер из Firebase Console.',
+          );
+        } else if (e.message?.contains('blocked all requests') == true) {
+          // Сработала защита Firebase от подозрительной активности.
+          // Снимется автоматически через несколько часов.
+          onFailed(
+            'Устройство временно заблокировано Firebase. '
+            'Попробуйте через несколько часов.',
+          );
+        } else {
+          onFailed(e.message ?? 'Ошибка отправки SMS');
+        }
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        onCodeSent(verificationId, resendToken);
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        // Тайм-аут авто-перехвата — пользователь введёт код вручную.
+      },
+    );
+  }
+
+  /// Подтверждает код из SMS и выполняет вход.
+  Future<AuthFlowResult> verifyPhoneCode({
+    required String verificationId,
+    required String smsCode,
+    required String phoneNumber,
+  }) async {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: smsCode,
+    );
+
+    return _signInWithPhoneCredential(
+      credential: credential,
+      phoneNumber: phoneNumber,
+    );
+  }
+
+  Future<AuthFlowResult> _signInWithPhoneCredential({
+    required PhoneAuthCredential credential,
+    required String phoneNumber,
+  }) async {
+    UserCredential userCredential;
+    try {
+      userCredential = await _auth.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'invalid-verification-code') {
+        throw Exception('Неверный код из SMS');
+      }
+      if (e.code == 'session-expired') {
+        throw Exception('Срок действия кода истёк. Запросите новый');
+      }
+      rethrow;
+    }
+
+    final firebaseUser = userCredential.user!;
+    final uid = firebaseUser.uid;
+
+    final existing = await _userRepo.getUserByFirebaseUid(uid);
+
+    if (existing != null) {
+      await _saveSession(existing.id, uid);
+      return AuthFlowResult.existingUser(existing);
+    }
+
+    return AuthFlowResult.needsRole(
+      uid: uid,
+      mail: firebaseUser.email ?? '',
+      userName: firebaseUser.displayName ?? '',
+      phone: phoneNumber,
+    );
   }
 
   Future<void> logout() async {

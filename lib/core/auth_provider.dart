@@ -66,6 +66,72 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Отправляет SMS с кодом на номер. Колбэки прокидываются из UI:
+  /// [onCodeSent] получает verificationId для следующего шага,
+  /// [onAutoVerified] — авто-подтверждение (вход уже состоялся).
+  Future<void> sendPhoneCode({
+    required String phoneNumber,
+    required void Function(String verificationId, int? resendToken) onCodeSent,
+    required void Function(AuthFlowResult result) onAutoVerified,
+  }) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    await _authRepo.sendPhoneVerificationCode(
+      phoneNumber: phoneNumber,
+      onCodeSent: (verificationId, resendToken) {
+        _loading = false;
+        notifyListeners();
+        onCodeSent(verificationId, resendToken);
+      },
+      onAutoVerified: (result) {
+        if (!result.needsRole) {
+          _user = result.user;
+        }
+        _loading = false;
+        notifyListeners();
+        onAutoVerified(result);
+      },
+      onFailed: (error) {
+        _error = error;
+        _loading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  /// Подтверждает код из SMS и выполняет вход.
+  Future<AuthFlowResult?> verifyPhoneCode({
+    required String verificationId,
+    required String smsCode,
+    required String phoneNumber,
+  }) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _authRepo.verifyPhoneCode(
+        verificationId: verificationId,
+        smsCode: smsCode,
+        phoneNumber: phoneNumber,
+      );
+
+      if (!result.needsRole) {
+        _user = result.user;
+      }
+
+      return result;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      return null;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> completeRegistration({
     required String firebaseUid,
     required String email,

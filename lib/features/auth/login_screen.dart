@@ -4,6 +4,7 @@ import '../../core/auth_provider.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/seed_repository.dart';
 import 'complete_registration_screen.dart';
+import 'phone_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -223,6 +224,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
                 label: const Text(
                   'Войти через Google',
+                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: auth.loading
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const PhoneLoginScreen(),
+                          ),
+                        );
+                      },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: Colors.grey),
+                ),
+                icon: const Icon(Icons.phone_android, color: Colors.green),
+                label: const Text(
+                  'Войти по телефону',
                   style: TextStyle(fontSize: 16, color: Colors.black87),
                 ),
               ),
