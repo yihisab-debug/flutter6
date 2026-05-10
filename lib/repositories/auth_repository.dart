@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_constants.dart';
@@ -38,6 +39,7 @@ class AuthFlowResult {
 class AuthRepository {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FacebookAuth _facebookAuth = FacebookAuth.instance;
   final UserRepository _userRepo = UserRepository();
 
   User? get currentFirebaseUser => _auth.currentUser;
@@ -133,6 +135,57 @@ class AuthRepository {
     );
   }
 
+  /// Вход / регистрация через Facebook.
+  Future<AuthFlowResult?> signInWithFacebook() async {
+    final loginResult = await _facebookAuth.login(
+      permissions: const ['email', 'public_profile'],
+    );
+
+    if (loginResult.status == LoginStatus.cancelled) {
+      return null;
+    }
+
+    if (loginResult.status != LoginStatus.success ||
+        loginResult.accessToken == null) {
+      throw Exception(
+        loginResult.message ?? 'Не удалось войти через Facebook',
+      );
+    }
+
+    final accessToken = loginResult.accessToken!;
+    final tokenString = accessToken.token;
+
+    final credential = FacebookAuthProvider.credential(tokenString);
+
+    UserCredential userCredential;
+    try {
+      userCredential = await _auth.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential') {
+        throw Exception(
+          'Этот email уже зарегистрирован другим способом. '
+          'Войдите прежним способом, чтобы привязать Facebook.',
+        );
+      }
+      rethrow;
+    }
+
+    final firebaseUser = userCredential.user!;
+    final uid = firebaseUser.uid;
+
+    final existing = await _userRepo.getUserByFirebaseUid(uid);
+
+    if (existing != null) {
+      await _saveSession(existing.id, uid);
+      return AuthFlowResult.existingUser(existing);
+    }
+
+    return AuthFlowResult.needsRole(
+      uid: uid,
+      mail: firebaseUser.email ?? '',
+      userName: firebaseUser.displayName ?? 'Пользователь',
+    );
+  }
   Future<UserModel> completeRegistration({
     required String firebaseUid,
     required String email,
@@ -160,26 +213,6 @@ class AuthRepository {
   }
 
   /// Отправляет SMS с кодом подтверждения на указанный номер.
-  ///
-  /// Колбэки:
-  ///   [onCodeSent]      — SMS отправлено, пришёл verificationId. Передайте его
-  ///                        в [verifyPhoneCode] вместе с кодом, который введёт
-  ///                        пользователь.
-  ///   [onAutoVerified]  — на Android может сработать авто-перехват SMS:
-  ///                        Firebase сам введёт код за пользователя и сразу
-  ///                        выполнит вход. В этом случае шаг ввода кода
-  ///                        пропускается, AuthFlowResult приходит сразу.
-  ///   [onFailed]        — ошибка отправки. Текст уже переведён на русский.
-  ///
-  /// ВАЖНО про лимиты Firebase:
-  ///   - На бесплатном плане Spark реальные SMS НЕ отправляются вообще
-  ///     (получите код 17499 BILLING_NOT_ENABLED).
-  ///   - Для разработки используйте "Phone numbers for testing" в Firebase
-  ///     Console — для них SMS не отправляется, а Firebase принимает
-  ///     заранее заданный код.
-  ///   - Для реальных SMS нужен план Blaze + платная тарификация SMS.
-  ///   - Слишком много неудачных попыток подряд → Firebase блокирует
-  ///     устройство на ~24 часа (код 17010).
   Future<void> sendPhoneVerificationCode({
     required String phoneNumber,
     required void Function(String verificationId, int? resendToken) onCodeSent,
@@ -201,7 +234,6 @@ class AuthRepository {
         }
       },
       verificationFailed: (FirebaseAuthException e) {
-        // Маппим коды ошибок Firebase в понятные пользователю сообщения.
         if (e.code == 'invalid-phone-number') {
           onFailed('Неверный формат номера телефона');
         } else if (e.code == 'too-many-requests') {
@@ -212,15 +244,11 @@ class AuthRepository {
             e.message?.contains('TOO_LONG') == true) {
           onFailed('Неверный формат номера. Введите +7 и 10 цифр');
         } else if (e.message?.contains('BILLING_NOT_ENABLED') == true) {
-          // Firebase Spark больше не отправляет реальные SMS.
-          // Используйте тестовые номера или перейдите на план Blaze.
           onFailed(
             'SMS на реальные номера временно недоступны. '
             'Используйте тестовый номер из Firebase Console.',
           );
         } else if (e.message?.contains('blocked all requests') == true) {
-          // Сработала защита Firebase от подозрительной активности.
-          // Снимется автоматически через несколько часов.
           onFailed(
             'Устройство временно заблокировано Firebase. '
             'Попробуйте через несколько часов.',
@@ -232,9 +260,7 @@ class AuthRepository {
       codeSent: (String verificationId, int? resendToken) {
         onCodeSent(verificationId, resendToken);
       },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        // Тайм-аут авто-перехвата — пользователь введёт код вручную.
-      },
+      codeAutoRetrievalTimeout: (String verificationId) {},
     );
   }
 
@@ -292,6 +318,7 @@ class AuthRepository {
 
   Future<void> logout() async {
     await _googleSignIn.signOut();
+    await _facebookAuth.logOut();
     await _auth.signOut();
 
     final prefs = await SharedPreferences.getInstance();

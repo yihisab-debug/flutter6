@@ -66,9 +66,29 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Отправляет SMS с кодом на номер. Колбэки прокидываются из UI:
-  /// [onCodeSent] получает verificationId для следующего шага,
-  /// [onAutoVerified] — авто-подтверждение (вход уже состоялся).
+  Future<AuthFlowResult?> signInWithFacebook() async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _authRepo.signInWithFacebook();
+
+      if (result != null && !result.needsRole) {
+        _user = result.user;
+      }
+
+      return result;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      return null;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Отправляет SMS с кодом на номер.
   Future<void> sendPhoneCode({
     required String phoneNumber,
     required void Function(String verificationId, int? resendToken) onCodeSent,

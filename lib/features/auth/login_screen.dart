@@ -70,6 +70,13 @@ class _LoginScreenState extends State<LoginScreen> {
     _handleAuthResult(result, auth);
   }
 
+  Future<void> _signInWithFacebook() async {
+    final auth = context.read<AuthProvider>();
+    final result = await auth.signInWithFacebook();
+
+    _handleAuthResult(result, auth);
+  }
+
   Future<void> _seedTestData() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -224,6 +231,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
                 label: const Text(
                   'Войти через Google',
+                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: auth.loading ? null : _signInWithFacebook,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: Colors.grey),
+                ),
+                icon: const Icon(
+                  Icons.facebook,
+                  size: 28,
+                  color: Color(0xFF1877F2),
+                ),
+                label: const Text(
+                  'Войти через Facebook',
                   style: TextStyle(fontSize: 16, color: Colors.black87),
                 ),
               ),
