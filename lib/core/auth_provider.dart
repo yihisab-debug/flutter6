@@ -1,9 +1,17 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
+import '../core/app_constants.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/user_repository.dart';
 
 class AuthProvider extends ChangeNotifier {
+  AuthProvider({required this.expectedRole});
+
+  
+
+  
+  final String expectedRole;
+
   final AuthRepository _authRepo = AuthRepository();
   final UserRepository _userRepo = UserRepository();
 
@@ -15,6 +23,41 @@ class AuthProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
   bool get isLoggedIn => _user != null;
+
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  
+  Future<bool> _enforceRole(UserModel user) async {
+    if (user.role == expectedRole) return true;
+    await _authRepo.logout();
+    _user = null;
+    _error = _wrongRoleMessage(user.role);
+    notifyListeners();
+    return false;
+  }
+
+  String _wrongRoleMessage(String actualRole) {
+    final actual = _roleLabel(actualRole);
+    final expected = _roleLabel(expectedRole);
+    return 'Этот аккаунт зарегистрирован как $actual. '
+        'Войдите в приложение для $expected.';
+  }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'passenger':
+        return 'пассажир';
+      case 'driver':
+        return 'водитель';
+      case 'admin':
+        return 'администратор';
+      default:
+        return role;
+    }
+  }
 
   Future<AuthFlowResult?> signInOrRegister({
     required String email,
@@ -31,13 +74,38 @@ class AuthProvider extends ChangeNotifier {
       );
 
       if (!result.needsRole) {
-        _user = result.user;
+        if (await _enforceRole(result.user!)) {
+          _user = result.user;
+        } else {
+          return null;
+        }
       }
 
       return result;
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       return null;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> signInWithTestAccount(TestAccount account) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final user = await _authRepo.signInWithTestAccount(
+        account: account,
+        expectedRole: expectedRole,
+      );
+      _user = user;
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      return false;
     } finally {
       _loading = false;
       notifyListeners();
@@ -53,7 +121,11 @@ class AuthProvider extends ChangeNotifier {
       final result = await _authRepo.signInWithGoogle();
 
       if (result != null && !result.needsRole) {
-        _user = result.user;
+        if (await _enforceRole(result.user!)) {
+          _user = result.user;
+        } else {
+          return null;
+        }
       }
 
       return result;
@@ -75,7 +147,11 @@ class AuthProvider extends ChangeNotifier {
       final result = await _authRepo.signInWithFacebook();
 
       if (result != null && !result.needsRole) {
-        _user = result.user;
+        if (await _enforceRole(result.user!)) {
+          _user = result.user;
+        } else {
+          return null;
+        }
       }
 
       return result;
@@ -88,7 +164,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Отправляет SMS с кодом на номер.
   Future<void> sendPhoneCode({
     required String phoneNumber,
     required void Function(String verificationId, int? resendToken) onCodeSent,
@@ -105,9 +180,11 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         onCodeSent(verificationId, resendToken);
       },
-      onAutoVerified: (result) {
+      onAutoVerified: (result) async {
         if (!result.needsRole) {
-          _user = result.user;
+          if (await _enforceRole(result.user!)) {
+            _user = result.user;
+          }
         }
         _loading = false;
         notifyListeners();
@@ -121,7 +198,6 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
-  /// Подтверждает код из SMS и выполняет вход.
   Future<AuthFlowResult?> verifyPhoneCode({
     required String verificationId,
     required String smsCode,
@@ -139,7 +215,11 @@ class AuthProvider extends ChangeNotifier {
       );
 
       if (!result.needsRole) {
-        _user = result.user;
+        if (await _enforceRole(result.user!)) {
+          _user = result.user;
+        } else {
+          return null;
+        }
       }
 
       return result;
@@ -156,7 +236,6 @@ class AuthProvider extends ChangeNotifier {
     required String firebaseUid,
     required String email,
     required String name,
-    required String role,
     String carModel = '',
     String carNumber = '',
   }) async {
@@ -165,11 +244,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+
       _user = await _authRepo.completeRegistration(
         firebaseUid: firebaseUid,
         email: email,
         name: name,
-        role: role,
+        role: expectedRole,
         carModel: carModel,
         carNumber: carNumber,
       );
@@ -184,7 +264,16 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> restore() async {
-    _user = await _authRepo.restoreSession();
+    final user = await _authRepo.restoreSession();
+    if (user == null) {
+      _user = null;
+    } else if (user.role == expectedRole && !user.isBlocked) {
+      _user = user;
+    } else {
+
+      await _authRepo.logout();
+      _user = null;
+    }
     notifyListeners();
   }
 
@@ -197,7 +286,14 @@ class AuthProvider extends ChangeNotifier {
   Future<void> refreshUser() async {
     if (_user == null) return;
     _user = await _userRepo.getUserById(_user!.id);
-    notifyListeners();
+
+    if (_user!.isBlocked) {
+      await logout();
+      _error = 'Ваш аккаунт был заблокирован администратором';
+      notifyListeners();
+    } else {
+      notifyListeners();
+    }
   }
 
   Future<bool> topUpBalance(double amount) async {

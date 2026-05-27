@@ -1,0 +1,145 @@
+﻿Running Gradle task 'assembleDebug'...                          
+flutter : Warning: Flut
+ter support for your pr
+oject's Android Gradle 
+Plugin version (Android
+ Gradle Plugin version 
+8.1.1) will soon be dro
+pped. Please upgrade yo
+ur Android Gradle Plugi
+n version to a version 
+of at least Android Gra
+dle Plugin version 8.6.
+0 soon.
+строка:1 знак:1
++ flutter build apk --d
+ebug > build_output.txt
+ 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Warning: Flut   
+ te...ion 8.6.0 soo    
+n.:String) [], Rem    o
+teException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+Alternatively, use the 
+flag "--android-skip-bu
+ild-dependency-validati
+on" to bypass this chec
+k.
+
+Potential fix: Your pro
+ject's AGP version is t
+ypically defined in the
+ plugins block of the `
+settings.gradle` file (
+C:\Users\Yi\Desktop\IT\
+fb\flutter6\android/set
+tings.gradle), by a plu
+gin with the id of com.
+android.application. 
+If you don't see a plug
+ins block, your project
+ was likely created wit
+h an older template ver
+sion. In this case it i
+s most likely defined i
+n the top-level build.g
+radle file (C:\Users\Yi
+\Desktop\IT\fb\flutter6
+\android/build.gradle) 
+by the following line i
+n the dependencies bloc
+k of the buildscript: "
+classpath 'com.android.
+tools.build:gradle:<ver
+sion>'".
+
+Warning: Flutter suppor
+t for your project's Ko
+tlin version (1.8.22) w
+ill soon be dropped. Pl
+ease upgrade your Kotli
+n version to a version 
+of at least 2.1.0 soon.
+Alternatively, use the 
+flag "--android-skip-bu
+ild-dependency-validati
+on" to bypass this chec
+k.
+
+Potential fix: Your pro
+ject's KGP version is t
+ypically defined in the
+ plugins block of the `
+settings.gradle` file (
+C:\Users\Yi\Desktop\IT\
+fb\flutter6\android/set
+tings.gradle), by a plu
+gin with the id of org.
+jetbrains.kotlin.androi
+d. 
+If you don't see a plug
+ins block, your project
+ was likely created wit
+h an older template ver
+sion, in which case it 
+is most likely defined 
+in the top-level build.
+gradle file (C:\Users\Y
+i\Desktop\IT\fb\flutter
+6\android/build.gradle)
+ by the ext.kotlin_vers
+ion property.
+
+Warning: The plugin flutter_facebook_auth requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+Warning: The plugin flutter_secure_storage requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+Warning: The plugin google_sign_in_android requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+Warning: The plugin path_provider_android requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+
+FAILURE: Build failed w
+ith an exception.
+
+* Where:
+Build file 'C:\Users\Yi
+\AppData\Local\Pub\Cach
+e\hosted\pub.dev\shared
+_preferences_android-2.
+4.23\android\build.grad
+le.kts' line: 38
+
+* What went wrong:
+'void org.jetbrains.kot
+lin.gradle.dsl.KotlinAn
+droidProjectExtension.c
+ompilerOptions(kotlin.j
+vm.functions.Function1)
+'
+
+* Try:
+> Run with --stacktrace
+ option to get the stac
+k trace.
+> Run with --info or --
+debug option to get mor
+e log output.
+> Run with --scan to ge
+t full insights.
+> Get more help at http
+s://help.gradle.org.
+
+BUILD FAILED in 47s
+Running Gradle task 'assembleDebug'...                             47,4s
+Gradle task assembleDeb
+ug failed with exit cod
+e 1

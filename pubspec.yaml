@@ -1,32 +1,34 @@
-name: taxi_app
-description: Taxi booking app with Flutter, Firebase Auth and MockAPI.
+name: flutter6
+description: Приложение для пассажиров такси.
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.6
 
-  firebase_core: ^2.27.0
-  firebase_auth: ^4.17.8
-  firebase_messaging: ^14.7.19
+  # Firebase (обновлено для устранения PigeonUserDetails type cast bug)
+  firebase_core: ^3.8.0
+  firebase_auth: ^5.3.3
+  firebase_messaging: ^15.1.5
 
+  # Сторонняя аутентификация
   google_sign_in: ^6.2.1
-  flutter_facebook_auth: ^6.2.0
+  flutter_facebook_auth: ^7.1.1
 
-  dio: ^5.4.1
-
-  provider: ^6.1.2
-
-  flutter_local_notifications: ^17.0.0
-
+  # State / HTTP
+  provider: ^6.1.1
+  dio: ^5.4.0
   shared_preferences: ^2.2.2
 
+  # UI / Utils
   intl: ^0.19.0
+  flutter_local_notifications: ^17.2.4
 
 dev_dependencies:
   flutter_test:

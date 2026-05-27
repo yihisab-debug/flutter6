@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/review_model.dart';
 import '../../models/ride_model.dart';
 import '../../repositories/review_repository.dart';
+import '../complaints/submit_complaint_screen.dart';
 import 'rating_stars.dart';
 
 class SubmitReviewScreen extends StatefulWidget {
@@ -232,6 +233,65 @@ class _SubmitReviewScreenState extends State<SubmitReviewScreen> {
                       isEditing ? 'Сохранить изменения' : 'Отправить',
                       style: const TextStyle(fontSize: 18),
                     ),
+            ),
+            const SizedBox(height: 24),
+
+            const Divider(),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.report_problem,
+                          color: Colors.red[700], size: 20),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Возникла проблема с поездкой?',
+                        style: TextStyle(
+                          color: Colors.red[800],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Если водитель повёл себя некорректно или есть другая жалоба — сообщите администратору.',
+                    style: TextStyle(color: Colors.red[700], fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      SubmitComplaintScreen(ride: _ride),
+                                ),
+                              );
+                            },
+                      icon: const Icon(Icons.report_problem),
+                      label: const Text('Пожаловаться'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red[700],
+                        side: BorderSide(color: Colors.red[300]!),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

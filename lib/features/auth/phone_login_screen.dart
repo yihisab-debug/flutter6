@@ -23,7 +23,6 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   String? _verificationId;
   String _phoneNumber = '';
 
-  // Таймер для повторной отправки кода
   Timer? _resendTimer;
   int _resendSeconds = 0;
 
@@ -49,14 +48,14 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   }
 
   String _normalizePhone(String raw) {
-    // Убираем все пробелы, скобки, дефисы — оставляем + и цифры.
+
     final cleaned = raw.replaceAll(RegExp(r'[^\d+]'), '');
     if (cleaned.startsWith('+')) return cleaned;
-    // Если пользователь ввёл 8XXXXXXXXXX — заменяем на +7
+
     if (cleaned.startsWith('8') && cleaned.length == 11) {
       return '+7${cleaned.substring(1)}';
     }
-    // Если 7XXXXXXXXXX без плюса
+
     if (cleaned.startsWith('7') && cleaned.length == 11) {
       return '+$cleaned';
     }
@@ -258,7 +257,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               if (cleaned.length > 15) {
                 return 'Слишком длинный номер';
               }
-              // Проверяем что номер казахстанский/российский: начинается с 7 или 8.
+
               if (!cleaned.startsWith('7') && !cleaned.startsWith('8')) {
                 return 'Номер должен начинаться с +7 или 8';
               }
@@ -286,8 +285,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   }
 
   Widget _buildCodeStep(AuthProvider auth) {
-    // Определяем, является ли номер из стандартного тестового пула,
-    // чтобы показать подходящую подсказку.
+
+    
     final isLikelyTestNumber = _phoneNumber.startsWith('+7700000000');
 
     return Form(

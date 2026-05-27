@@ -18,14 +18,11 @@ class UserRepository {
         _endpoint,
         queryParameters: {'firebaseUid': firebaseUid},
       );
-
       final list = response.data as List;
       if (list.isEmpty) return null;
       return UserModel.fromJson(list.first);
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        return null;
-      }
+      if (e.response?.statusCode == 404) return null;
       rethrow;
     }
   }
@@ -58,24 +55,51 @@ class UserRepository {
   }) async {
     final response = await _dio.put(
       '$_endpoint/$id',
-      data: {
-        'rating': rating,
-        'ratingCount': ratingCount,
-      },
+      data: {'rating': rating, 'ratingCount': ratingCount},
+    );
+    return UserModel.fromJson(response.data);
+  }
+
+  Future<UserModel> setBlocked(String id, bool isBlocked) async {
+    final response = await _dio.put(
+      '$_endpoint/$id',
+      data: {'isBlocked': isBlocked},
     );
     return UserModel.fromJson(response.data);
   }
 
   Future<List<UserModel>> getDrivers({double minRating = 0}) async {
-    final response = await _dio.get(
-      _endpoint,
-      queryParameters: {'role': 'driver'},
-    );
-    final list = (response.data as List)
-        .map((e) => UserModel.fromJson(e))
-        .where((u) => u.rating >= minRating)
-        .toList();
-    list.sort((a, b) => b.rating.compareTo(a.rating));
-    return list;
+    try {
+      final response = await _dio.get(
+        _endpoint,
+        queryParameters: {'role': 'driver'},
+      );
+      final list = (response.data as List)
+          .map((e) => UserModel.fromJson(e))
+          .where((u) => u.rating >= minRating)
+          .toList();
+      list.sort((a, b) => b.rating.compareTo(a.rating));
+      return list;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return [];
+      rethrow;
+    }
+  }
+
+  Future<List<UserModel>> getPassengers() async {
+    try {
+      final response = await _dio.get(
+        _endpoint,
+        queryParameters: {'role': 'passenger'},
+      );
+      final list = (response.data as List)
+          .map((e) => UserModel.fromJson(e))
+          .toList();
+      list.sort((a, b) => a.name.compareTo(b.name));
+      return list;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return [];
+      rethrow;
+    }
   }
 }

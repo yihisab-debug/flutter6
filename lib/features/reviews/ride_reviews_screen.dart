@@ -5,6 +5,7 @@ import '../../core/auth_provider.dart';
 import '../../models/review_model.dart';
 import '../../models/ride_model.dart';
 import '../../repositories/review_repository.dart';
+import '../complaints/submit_complaint_screen.dart';
 import 'rating_stars.dart';
 import 'submit_review_screen.dart';
 
@@ -133,9 +134,66 @@ class _RideReviewsScreenState extends State<RideReviewsScreen> {
                   _buildMySection(),
                   const SizedBox(height: 16),
                   _buildOtherSection(),
+                  const SizedBox(height: 16),
+                  _buildComplaintCard(),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildComplaintCard() {
+    return Card(
+      color: Colors.red[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.report_problem, color: Colors.red[700], size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  'Возникла проблема?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red[800],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _meIsDriver
+                  ? 'Если пассажир повёл себя некорректно или есть другая претензия — сообщите администратору.'
+                  : 'Если водитель повёл себя некорректно или есть другая претензия — сообщите администратору.',
+              style: TextStyle(color: Colors.red[700], fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SubmitComplaintScreen(ride: _ride),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.report_problem),
+                label: const Text('Пожаловаться'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

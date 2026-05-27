@@ -1,0 +1,84 @@
+﻿
+  [        ]   Build ca
+che is disabled
+  [        ] Task ':app
+:generateDebugResValues
+' is not up-to-date bec
+ause:
+  [        ]   No histo
+ry is available.
+  [        ] Resolve mu
+tations for :app:proces
+sDebugGoogleServices (T
+hread[#844,Execution wo
+rker Thread 7,5,main]) 
+started.
+  [        ] :app:proce
+ssDebugGoogleServices (
+Thread[#844,Execution w
+orker Thread 7,5,main])
+ started.
+> [  +90 ms] > Task :ap
+p:processDebugGoogleSer
+vices FAILED
+  [        ] Caching di
+sabled for task ':app:p
+rocessDebugGoogleServic
+es' because:
+  [        ]   Build ca
+che is disabled
+  [        ] Task ':app
+:processDebugGoogleServ
+ices' is not up-to-date
+ because:
+  [        ]   No histo
+ry is available.
+  [        ] Parsing js
+on file: C:\Users\Yi\De
+sktop\IT\fb\flutter6\an
+droid\app\google-servic
+es.json
+  [ +600 ms] FAILURE: B
+ui
+> ld failed with an exc
+ep
+  tion.
+  [        ] * What wen
+t 
+  wrong:
+  [        ] Execution 
+fa
+  iled for task ':app:p
+ro
+  ThreadPoolExecutor$Wo
+rk
+  er.run(Unknown Source
+)
+  [        ] 	at java.b
+as
+  e/java.lang.Thread.ru
+n(
+  Unknown Source)
+> [        ] BUILD FAIL
+ED
+   in 1m 25s
+  [ +246 ms] Running Gr
+adle task 'assembleDebu
+g'... (completed in 85,
+5s)
+  [ +207 ms] "flutter a
+pk" took 87┬а339ms.
+  [ +349 ms] Gradle tas
+k 
+> assembleDebug failed 
+wi
+  th exit code 1
+  [   +2 ms] 
+             #0      th
+ro
+  wToolExit (package:fl
+ut
+  ter_tools/src/base/co
+mm
+
+

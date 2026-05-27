@@ -2,7 +2,7 @@ class UserModel {
   final String id;
   final String name;
   final String email;
-  final String role;
+  final String role; 
   final double balance;
   final String firebaseUid;
   final String carModel;
@@ -10,6 +10,7 @@ class UserModel {
   final double rating;
   final int ratingCount;
   final bool isAvailable;
+  final bool isBlocked; 
   final DateTime? createdAt;
 
   UserModel({
@@ -24,11 +25,13 @@ class UserModel {
     this.rating = 0,
     this.ratingCount = 0,
     this.isAvailable = true,
+    this.isBlocked = false,
     this.createdAt,
   });
 
   bool get isDriver => role == 'driver';
   bool get isPassenger => role == 'passenger';
+  bool get isAdmin => role == 'admin';
 
   String get carInfo {
     if (!isDriver) return '';
@@ -50,6 +53,7 @@ class UserModel {
           ? (json['ratingCount'] ?? 0) as int
           : int.tryParse(json['ratingCount'].toString()) ?? 0,
       isAvailable: json['isAvailable'] ?? true,
+      isBlocked: json['isBlocked'] ?? false,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())
           : null,
@@ -68,6 +72,7 @@ class UserModel {
       'rating': rating,
       'ratingCount': ratingCount,
       'isAvailable': isAvailable,
+      'isBlocked': isBlocked,
     };
   }
 
@@ -76,6 +81,7 @@ class UserModel {
     String? carModel,
     String? carNumber,
     bool? isAvailable,
+    bool? isBlocked,
     double? rating,
     int? ratingCount,
   }) {
@@ -91,6 +97,7 @@ class UserModel {
       rating: rating ?? this.rating,
       ratingCount: ratingCount ?? this.ratingCount,
       isAvailable: isAvailable ?? this.isAvailable,
+      isBlocked: isBlocked ?? this.isBlocked,
       createdAt: createdAt,
     );
   }

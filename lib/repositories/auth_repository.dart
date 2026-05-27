@@ -88,10 +88,13 @@ class AuthRepository {
     }
 
     final uid = credential.user!.uid;
-
     final existing = await _userRepo.getUserByFirebaseUid(uid);
 
     if (existing != null) {
+      if (existing.isBlocked) {
+        await logout();
+        throw Exception('Ваш аккаунт заблокирован администратором');
+      }
       await _saveSession(existing.id, uid);
       return AuthFlowResult.existingUser(existing);
     }
@@ -104,11 +107,73 @@ class AuthRepository {
     );
   }
 
+  
+
+  Future<UserModel> signInWithTestAccount({
+    required TestAccount account,
+    required String expectedRole,
+  }) async {
+    if (account.role != expectedRole) {
+      throw Exception('Этот тестовый аккаунт не для роли "$expectedRole"');
+    }
+
+    UserCredential credential;
+    try {
+      credential = await _auth.signInWithEmailAndPassword(
+        email: account.email,
+        password: account.password,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
+        credential = await _auth.createUserWithEmailAndPassword(
+          email: account.email,
+          password: account.password,
+        );
+      } else {
+        rethrow;
+      }
+    }
+
+    final uid = credential.user!.uid;
+    final existing = await _userRepo.getUserByFirebaseUid(uid);
+
+    if (existing != null) {
+      if (existing.role != expectedRole) {
+        await logout();
+        throw Exception(
+          'Этот тестовый аккаунт зарегистрирован с другой ролью '
+          '("${existing.role}"). Войдите в соответствующее приложение.',
+        );
+      }
+      if (existing.isBlocked) {
+        await logout();
+        throw Exception('Аккаунт заблокирован');
+      }
+      await _saveSession(existing.id, uid);
+      return existing;
+    }
+
+    final user = UserModel(
+      id: '',
+      name: account.name,
+      email: account.email,
+      role: account.role,
+      balance: account.role == 'passenger' ? 5000 : 0,
+      firebaseUid: uid,
+      carModel: account.carModel,
+      carNumber: account.carNumber,
+      rating: account.role == 'driver' ? 5.0 : 0,
+      isAvailable: true,
+    );
+
+    final created = await _userRepo.createUser(user);
+    await _saveSession(created.id, uid);
+    return created;
+  }
+
   Future<AuthFlowResult?> signInWithGoogle() async {
     final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) {
-      return null;
-    }
+    if (googleUser == null) return null;
 
     final googleAuth = await googleUser.authentication;
 
@@ -124,6 +189,10 @@ class AuthRepository {
     final existing = await _userRepo.getUserByFirebaseUid(uid);
 
     if (existing != null) {
+      if (existing.isBlocked) {
+        await logout();
+        throw Exception('Ваш аккаунт заблокирован администратором');
+      }
       await _saveSession(existing.id, uid);
       return AuthFlowResult.existingUser(existing);
     }
@@ -135,15 +204,12 @@ class AuthRepository {
     );
   }
 
-  /// Вход / регистрация через Facebook.
   Future<AuthFlowResult?> signInWithFacebook() async {
     final loginResult = await _facebookAuth.login(
       permissions: const ['email', 'public_profile'],
     );
 
-    if (loginResult.status == LoginStatus.cancelled) {
-      return null;
-    }
+    if (loginResult.status == LoginStatus.cancelled) return null;
 
     if (loginResult.status != LoginStatus.success ||
         loginResult.accessToken == null) {
@@ -153,8 +219,7 @@ class AuthRepository {
     }
 
     final accessToken = loginResult.accessToken!;
-    final tokenString = accessToken.token;
-
+    final tokenString = accessToken.tokenString;
     final credential = FacebookAuthProvider.credential(tokenString);
 
     UserCredential userCredential;
@@ -172,10 +237,13 @@ class AuthRepository {
 
     final firebaseUser = userCredential.user!;
     final uid = firebaseUser.uid;
-
     final existing = await _userRepo.getUserByFirebaseUid(uid);
 
     if (existing != null) {
+      if (existing.isBlocked) {
+        await logout();
+        throw Exception('Ваш аккаунт заблокирован администратором');
+      }
       await _saveSession(existing.id, uid);
       return AuthFlowResult.existingUser(existing);
     }
@@ -186,6 +254,7 @@ class AuthRepository {
       userName: firebaseUser.displayName ?? 'Пользователь',
     );
   }
+
   Future<UserModel> completeRegistration({
     required String firebaseUid,
     required String email,
@@ -212,7 +281,6 @@ class AuthRepository {
     return created;
   }
 
-  /// Отправляет SMS с кодом подтверждения на указанный номер.
   Future<void> sendPhoneVerificationCode({
     required String phoneNumber,
     required void Function(String verificationId, int? resendToken) onCodeSent,
@@ -264,7 +332,6 @@ class AuthRepository {
     );
   }
 
-  /// Подтверждает код из SMS и выполняет вход.
   Future<AuthFlowResult> verifyPhoneCode({
     required String verificationId,
     required String smsCode,
@@ -274,7 +341,6 @@ class AuthRepository {
       verificationId: verificationId,
       smsCode: smsCode,
     );
-
     return _signInWithPhoneCredential(
       credential: credential,
       phoneNumber: phoneNumber,
@@ -300,10 +366,13 @@ class AuthRepository {
 
     final firebaseUser = userCredential.user!;
     final uid = firebaseUser.uid;
-
     final existing = await _userRepo.getUserByFirebaseUid(uid);
 
     if (existing != null) {
+      if (existing.isBlocked) {
+        await logout();
+        throw Exception('Ваш аккаунт заблокирован администратором');
+      }
       await _saveSession(existing.id, uid);
       return AuthFlowResult.existingUser(existing);
     }
@@ -317,8 +386,12 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
-    await _googleSignIn.signOut();
-    await _facebookAuth.logOut();
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+    try {
+      await _facebookAuth.logOut();
+    } catch (_) {}
     await _auth.signOut();
 
     final prefs = await SharedPreferences.getInstance();
